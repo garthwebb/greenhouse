@@ -16,7 +16,7 @@
 #include <InfluxDbCloud.h>
 
 // Quickly enable/disable infux logging
-#define LOG_TO_INFLUX false
+#define LOG_TO_INFLUX true
 
 // Time in seconds between collecting data
 #define COLLECTION_PERIOD_S (1 * 60)
@@ -88,6 +88,9 @@ bool history_init = true;
 long last_open_time_ms = 0;
 bool window_open = false;
 
+bool trigger_open = false;
+bool trigger_close = false;
+
 //----------------------------------------------------
 // Functions
 
@@ -127,6 +130,7 @@ void init_wifi() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
+  WebSerial.msgCallback(onMessage);
   WebSerial.begin(&server);
   server.begin();
 }
@@ -178,8 +182,8 @@ void annotate_open_window(const char * reason, float trigger) {
   
 
   if (!client.writePoint(window_state)) {
-    Serial.print("InfluxDB write failed: ");
-    Serial.println(client.getLastErrorMessage());
+    WebSerial.print("InfluxDB write failed: ");
+    WebSerial.println(client.getLastErrorMessage());
   }
 }
 
@@ -190,12 +194,14 @@ void annotate_close_window(const char * reason, float trigger) {
   window_state.addField("trigger", trigger);
 
   if (!client.writePoint(window_state)) {
-    Serial.print("InfluxDB write failed: ");
-    Serial.println(client.getLastErrorMessage());
+    WebSerial.print("InfluxDB write failed: ");
+    WebSerial.println(client.getLastErrorMessage());
   }
 }
 
 void init_temp_history() {
+  Serial.println("Initializing history");
+
   // Initialize all history values to the current temperature 
   for (int i = 0; i < TEMP_HISTORY_DEPTH; i++) {
     Serial.print("Setting history[");
@@ -203,6 +209,15 @@ void init_temp_history() {
     Serial.print("] = ");
     Serial.println(temp);
     temp_history[i] = temp;
+  }
+}
+
+void dump_temp_history() {
+  for (int i = 0; i < 8; i++) {
+    WebSerial.print("history[");
+    WebSerial.print(i);
+    WebSerial.print("] = ");
+    WebSerial.println(temp_history[i]);
   }
 }
 
@@ -217,15 +232,22 @@ void add_temp_history() {
 void write_reading_to_influx() {
   if (LOG_TO_INFLUX) {
     if (!client.writePoint(sensor)) {
-      Serial.print("InfluxDB write failed: ");
-      Serial.println(client.getLastErrorMessage());
+      WebSerial.print("InfluxDB write failed: ");
+      WebSerial.println(client.getLastErrorMessage());
     }
   }
 
-  Serial.print("Temp: ");
-  Serial.println(temp);
-  Serial.print("Humidity: ");
-  Serial.println(humidity);
+  WebSerial.print("Temp: ");
+  WebSerial.println(temp);
+  WebSerial.print("Humidity: ");
+  WebSerial.println(humidity);
+}
+
+float calc_temp_delta() {
+  float start_period_temp = temp_history[RAPID_RISE_PERIODS];
+  float temp_delta = temp_history[0] - start_period_temp;
+
+  return temp_delta;
 }
 
 bool need_window_opened() {
@@ -236,29 +258,28 @@ bool need_window_opened() {
 
   // Open unconditionally if temp is high enough
   if (temp >= ALWAYS_OPEN_TEMP_F) {
-    Serial.print("Opening window (absolute): ");
-    Serial.print(temp);
-    Serial.print("F >= ");
-    Serial.print(ALWAYS_OPEN_TEMP_F);
-    Serial.println("F");
+    WebSerial.print("Opening window (absolute): ");
+    WebSerial.print(temp);
+    WebSerial.print("F >= ");
+    WebSerial.print(ALWAYS_OPEN_TEMP_F);
+    WebSerial.println("F");
 
     annotate_open_window("absolute", temp);
     return true;
   }
 
   // Open depending on how quickly temp is rising
-  float start_period_temp = temp_history[RAPID_RISE_PERIODS];
-  float temp_delta = temp_history[0] - start_period_temp;
   if (temp >= TARGET_TEMP_F) {
+    float temp_delta = calc_temp_delta();
     if (temp_delta > RAPID_RISE_TEMP_DELTA) {
-      Serial.print("Rapid rise periods: ");
-      Serial.println(RAPID_RISE_PERIODS);
+      WebSerial.print("Rapid rise periods: ");
+      WebSerial.println(RAPID_RISE_PERIODS);
       
-      Serial.print("Opening window (conditional): ");
-      Serial.print(temp_delta);
-      Serial.print("F > ");
-      Serial.print(RAPID_RISE_TEMP_DELTA);
-      Serial.println("F");
+      WebSerial.print("Opening window (conditional): ");
+      WebSerial.print(temp_delta);
+      WebSerial.print("F > ");
+      WebSerial.print(RAPID_RISE_TEMP_DELTA);
+      WebSerial.println("F");
       
       annotate_open_window("conditional", temp_delta);
       return true;
@@ -276,11 +297,11 @@ bool need_window_closed() {
 
   // Close unconditionally if temp is low enough
   if (temp < ALWAYS_CLOSE_TEMP_F) {
-    Serial.print("Closing window (absolute): ");
-    Serial.print(temp);
-    Serial.print("F < ");
-    Serial.print(ALWAYS_CLOSE_TEMP_F);
-    Serial.println("F");
+    WebSerial.print("Closing window (absolute): ");
+    WebSerial.print(temp);
+    WebSerial.print("F < ");
+    WebSerial.print(ALWAYS_CLOSE_TEMP_F);
+    WebSerial.println("F");
 
     annotate_close_window("absolute", temp);
     return true;
@@ -291,15 +312,15 @@ bool need_window_closed() {
   if (temp < DROPPING_TEMP_F) {
     long open_delta = millis() - last_open_time_ms;
     if (open_delta > DROPPING_TIME_SINCE_OPEN_MS) {
-      Serial.print("Closing window (conditional): ");
-      Serial.print(temp);
-      Serial.print("F < ");
-      Serial.print(DROPPING_TEMP_F);
-      Serial.print("F AND ");
-      Serial.print(open_delta);
-      Serial.print("ms > ");
-      Serial.print(DROPPING_TIME_SINCE_OPEN_MS);
-      Serial.println("ms");
+      WebSerial.print("Closing window (conditional): ");
+      WebSerial.print(temp);
+      WebSerial.print("F < ");
+      WebSerial.print(DROPPING_TEMP_F);
+      WebSerial.print("F AND ");
+      WebSerial.print((double) open_delta);
+      WebSerial.print("ms > ");
+      WebSerial.print(DROPPING_TIME_SINCE_OPEN_MS);
+      WebSerial.println("ms");
 
       annotate_close_window("conditional", open_delta);
       return true;
@@ -310,6 +331,7 @@ bool need_window_closed() {
 }
 
 void open_window() {
+  WebSerial.println("Opening window ...");
   digitalWrite(WINDOW_OPEN_PIN, LOW);
   delay(WINDOW_MOVE_TIME_MS);
   digitalWrite(WINDOW_OPEN_PIN, HIGH);
@@ -319,6 +341,7 @@ void open_window() {
 }
 
 void close_window() {
+  WebSerial.println("Closing window ...");
   digitalWrite(WINDOW_CLOSE_PIN, LOW);
   delay(WINDOW_MOVE_TIME_MS);
   digitalWrite(WINDOW_CLOSE_PIN, HIGH);
@@ -326,24 +349,52 @@ void close_window() {
   window_open = false;
 }
 
+void onMessage(uint8_t *data, size_t len) {
+  String cmd = "";
+
+  for (int i=0; i < len; i++){
+      cmd += (char) data[i];
+  }
+  
+  if (cmd == "open") {
+    WebSerial.println("Triggering open window ...");
+    trigger_open = true;
+  } else if (cmd == "close") {
+    WebSerial.println("Triggering close window ...");
+    trigger_close = true;
+  } else if (cmd == "dump") {
+    dump_temp_history();
+  } else if (cmd == "delta") {
+    WebSerial.print("Temp delta: ");
+    WebSerial.println(calc_temp_delta());
+  }
+}
+
 void loop() {
+  if (trigger_open) {
+    open_window();
+    trigger_open = false;
+  }
+  if (trigger_close) {
+    close_window();
+    trigger_close = false;
+  }
+  
   collect_new_reading();
+  add_temp_history();
   write_reading_to_influx();
 
   // Initialize the history on first reading
   if (history_init) {
-    Serial.println("Initializing history");
     init_temp_history();
     history_init = false;
   }
 
   long wait_ms = COLLECTION_PERIOD_MS;
   if (need_window_opened()) {
-    Serial.println("Opening window ...");
     open_window();
     wait_ms -= WINDOW_MOVE_TIME_MS;
   } else if (need_window_closed()) {
-    Serial.println("Closing window ...");
     close_window();
     wait_ms -= WINDOW_MOVE_TIME_MS;
   }
@@ -351,10 +402,5 @@ void loop() {
   WebSerial.print("Waiting for ");
   WebSerial.print((float) (wait_ms/1000));
   WebSerial.println("s");
-
-  Serial.print("Waiting for ");
-  Serial.print(wait_ms/1000);
-  Serial.println("s");
-  Serial.flush();
   delay(wait_ms);
 }
