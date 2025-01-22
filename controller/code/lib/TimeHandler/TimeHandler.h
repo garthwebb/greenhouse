@@ -1,7 +1,7 @@
 #ifndef TIMEHANDLER_H
 #define TIMEHANDLER_H
 
-#include "Arduino.h"
+#include <Arduino.h>
 
 // From https://github.com/esp8266/Arduino/blob/master/cores/esp8266/TZ.h
 #define TIME_ZONE "PST8PDT,M3.2.0,M11.1.0"

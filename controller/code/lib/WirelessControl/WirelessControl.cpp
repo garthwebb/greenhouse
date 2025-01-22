@@ -1,29 +1,55 @@
 #include <WirelessControl.h>
 #include <WiFi.h>
 
+extern Logger *LOGGER;
+
+bool WirelessControl::is_connected = false;
+
 void WirelessControl::init_wifi(const char *ssid, const char *passwd) {
-  listNetworks();
+    listNetworks();
 
-  Serial.print("Connecting to ");
-  Serial.print(ssid);
-  Serial.println(":");
+    Serial.println("Connecting to " + String(ssid) + ":");
 
-  WiFi.begin(ssid, passwd);
+    WiFi.begin(ssid, passwd);
 
-  delay(WIFI_CONNECT_WAIT);
+	monitor();
+}
 
-  uint8_t status = WiFi.status();
-  while (status != WL_CONNECTED) {
-    printStatus(status);
-  
-    delay(WIFI_CONNECT_WAIT);
-    status = WiFi.status();
-  }
+void WirelessControl::monitor() {
+	uint8_t status = WiFi.status();
+	bool was_connected = is_connected;
 
-  Serial.println();
-  Serial.println("WiFi connected");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+	// Return immediately if we're still connected
+	if (status == WL_CONNECTED) {
+		return;
+	}
+
+	// If we were previously connected, explicitly disconnect and reconnect
+	if (is_connected) {
+		is_connected = false;
+		Serial.println("Reconnecting to WiFi...");
+        WiFi.disconnect();
+        WiFi.reconnect();
+	}
+
+    // Don't wait to see if we are connected here, 'monitor' should be called in the main
+    // loop, so we should get here again if the connection failed.  This also means that
+    // 'monitor' assumes the loop has a delay such that this isn't getting called rapidly
+    // while a connectinon is being reestablished.
+    while (status != WL_CONNECTED) {
+        printStatus(status);
+        delay(WIFI_CONNECT_WAIT);
+        status = WiFi.status();
+  	}
+
+	// Log that we lost a connection but are now reconnected
+	if (was_connected) {
+		LOGGER->log_error("WiFi connection was lost");
+	}
+
+    LOGGER->log("Connected to " + WiFi.SSID() + " with IP " + WiFi.localIP().toString());
+	Serial.println("Connected to " + WiFi.SSID() + " with IP " + WiFi.localIP().toString());
+ 	is_connected = true;
 }
 
 void WirelessControl::listNetworks() {

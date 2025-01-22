@@ -1,6 +1,9 @@
 #include <WindowControl.h>
 
+extern Logger *LOGGER;
+
 WindowControl::WindowControl(uint8_t open_pin, uint8_t close_pin) {
+    LOGGER->log("Initializing WindowControl");
     control_pin_open = open_pin;
     control_pin_close = close_pin;
 
@@ -30,6 +33,7 @@ void WindowControl::monitor() {
         is_moving = false;
 
         Serial.println("<< Window has finished moving >>");
+        LOGGER->log("Window has finished moving");
     }
 }
 
@@ -43,6 +47,8 @@ void WindowControl::open() {
 
     is_open = true;
     last_open_time_ms = millis();
+
+    LOGGER->log("Window open started");
 }
 
 void WindowControl::close() {
@@ -54,4 +60,6 @@ void WindowControl::close() {
     is_moving = true;
 
     is_open = false;
+
+    LOGGER->log("Window close started");
 }

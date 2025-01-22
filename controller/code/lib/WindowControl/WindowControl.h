@@ -1,7 +1,9 @@
 #ifndef WINDOWCONTROL_H
 #define WINDOWCONTROL_H
 
-#include "Arduino.h"
+#include <Arduino.h>
+
+#include "Logger.h"
 
 // Time in seconds to wait for window to close
 #define WINDOW_MOVE_TIME_S 20

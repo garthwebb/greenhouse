@@ -1,6 +1,9 @@
 #include <InfluxDBHandler.h>
 
+extern Logger *LOGGER;
+
 InfluxDBHandler::InfluxDBHandler(const String &url, const String &db, const char *device, const char *ssid) {
+    LOGGER->log("Initializing InfluxDBHandler");
     Serial.println("Initialziing InfluxDB: ");
  
     sensor = new Point("weather");
@@ -14,11 +17,15 @@ InfluxDBHandler::InfluxDBHandler(const String &url, const String &db, const char
     sensor->addTag("SSID", ssid);
 
     if (client->validateConnection()) {
-        Serial.print("\tConnected to InfluxDB: ");
-        Serial.println(client->getServerUrl());
+        Serial.println("\tConnected to InfluxDB: " + client->getServerUrl());
+        LOGGER->log("Connected to InfluxDB at " + client->getServerUrl());
     } else {
-        Serial.print("\tInfluxDB connection failed: ");
-        Serial.println(client->getLastErrorMessage());
+        Serial.println("\tInfluxDB connection failed: " + client->getLastErrorMessage());
+        LOGGER->log_error("InfluxDB connection failed: " + client->getLastErrorMessage());
+    }
+
+    if (log_events) {
+        LOGGER->log("Logging events to InfluxDB is enabled");
     }
 }
 
@@ -35,6 +42,7 @@ bool InfluxDBHandler::add_reading(float temp, float humidity) {
     }
 
     if (!client->writePoint(*sensor)) {
+        LOGGER->log_error("Failed to add reading: " + last_error());
         return false;
     }
 
@@ -50,6 +58,7 @@ bool InfluxDBHandler::annotate(Point *point, const char *reason, float trigger) 
     }
 
     if (!client->writePoint(*point)) {
+        LOGGER->log_error("Failed to add annotation: " + last_error());
         return false;
     }
 

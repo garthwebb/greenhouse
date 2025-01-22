@@ -1,8 +1,10 @@
 #ifndef SENSORCONTROL_H
 #define SENSORCONTROL_H
 
-#include "Arduino.h"
+#include <Arduino.h>
 #include <DHT.h>
+
+#include "Logger.h"
 
 #define DHT_TYPE DHT22
 #define USE_FAHRENHEIT true

@@ -1,10 +1,11 @@
 #ifndef INFLUXDBHANDLER_H
 #define INFLUXDBHANDLER_H
 
-#include "Arduino.h"
-
+#include <Arduino.h>
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
+
+#include "Logger.h"
 
 class InfluxDBHandler {
     private:

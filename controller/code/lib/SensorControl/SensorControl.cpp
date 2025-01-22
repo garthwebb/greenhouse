@@ -1,6 +1,9 @@
 #include <SensorControl.h>
 
+extern Logger *LOGGER;
+
 SensorControl::SensorControl(uint8_t pin) {
+    LOGGER->log("Initializing SensorControl");
     sensor = new DHT(pin, DHT_TYPE);
     sensor->begin();
 }

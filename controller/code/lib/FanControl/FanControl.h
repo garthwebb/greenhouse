@@ -1,7 +1,9 @@
 #ifndef FANCONTROL_H
 #define FANCONTROL_H
 
-#include "Arduino.h"
+#include <Arduino.h>
+
+#include "Logger.h"
 
 //Point fan_state("fan_events");
 
