@@ -6,6 +6,8 @@
 //----------------------------------------------------
 // Defines
 
+#define HOSTNAME "greenhouse-monitor"
+
 #define DEVICE "ESP32"
 
 #define SERIAL_SPEED 115200
@@ -15,6 +17,8 @@
 #define WINDOW_OPEN_PIN 33
 #define WINDOW_CLOSE_PIN 32
 #define FAN_CONTROL_PIN 25
+
+#define ENABLE_ADMIN_ACCESS true
 
 //-- Influx DB
 //#define INFLUXDB_URL "http://tiger-pi.local:8086"
@@ -44,5 +48,8 @@
 
 // How often to poll for webserial actions
 #define POLL_DELAY_MS 500
+
+// Set a watchdog timeer that is a little longer than the heartbeat period
+#define WDT_TIMEOUT ((int)(HEARTBEAT_PERIOD_S * 1.5))
 
 #endif

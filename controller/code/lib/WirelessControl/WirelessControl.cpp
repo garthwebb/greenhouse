@@ -6,6 +6,8 @@ extern Logger *LOGGER;
 bool WirelessControl::is_connected = false;
 
 void WirelessControl::init_wifi(const char *ssid, const char *passwd) {
+    WiFi.setHostname(HOSTNAME);
+
     listNetworks();
 
     Serial.println("Connecting to " + String(ssid) + ":");
@@ -47,7 +49,7 @@ void WirelessControl::monitor() {
 		LOGGER->log_error("WiFi connection was lost");
 	}
 
-    LOGGER->log("Connected to " + WiFi.SSID() + " with IP " + WiFi.localIP().toString());
+  LOGGER->log("Connected to " + WiFi.SSID() + " with IP " + WiFi.localIP().toString());
 	Serial.println("Connected to " + WiFi.SSID() + " with IP " + WiFi.localIP().toString());
  	is_connected = true;
 }

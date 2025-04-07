@@ -4,5 +4,9 @@
 			"path": "/Users/garth/projects/greenhouse/controller/code"
 		},
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"string": "cpp"
+		}
+	}
 }
