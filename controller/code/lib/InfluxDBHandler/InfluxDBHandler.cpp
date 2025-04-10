@@ -94,9 +94,11 @@ String InfluxDBHandler::last_error() {
 }
 
 void InfluxDBHandler::enable_logging() {
+    LOGGER->log("Logging events to InfluxDB is enabled");
     log_events = true;
 }
 
 void InfluxDBHandler::disable_logging() {
+    LOGGER->log("Logging events to InfluxDB is *disabled*");
     log_events = false;
 }
