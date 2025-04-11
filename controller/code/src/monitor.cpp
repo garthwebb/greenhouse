@@ -44,22 +44,22 @@ void record_new_reading() {
 }
 
 bool need_fan_on() {
-  // If the fan is already on, don't do anything
-  if (FAN->is_on) {
-      return false;
-  }
+    // If the fan is already on, don't do anything
+    if (FAN->is_on) {
+        return false;
+    }
 
-  // If the window is not open, don't turn the fan on
-  if (!WINDOW->is_open) {
-      return false;
-  }
+    // If the window is not open, don't turn the fan on
+    if (!WINDOW->is_open) {
+        return false;
+    }
 
-  if (SENSOR->current_temperature() >= ALWAYS_FAN_TEMP_F) {
-      INFLUX->annotate_fan_on("absolute", SENSOR->current_temperature());
-      return true;
-  }
+    if (SENSOR->current_temperature() >= ALWAYS_FAN_TEMP_F) {
+        INFLUX->annotate_fan_on("absolute", SENSOR->current_temperature());
+        return true;
+    }
 
-  return false;
+    return false;
 }
 
 bool need_fan_off() {
