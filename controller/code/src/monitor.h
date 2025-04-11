@@ -24,6 +24,7 @@
 //#define INFLUXDB_URL "http://tiger-pi.local:8086"
 #define INFLUXDB_URL "http://192.168.3.88:8086"
 #define INFLUXDB_DB "greenhouse"
+#define TELEMETRY_DB "telemetry"
 // Quickly enable/disable infux logging
 #define LOG_TO_INFLUX true
 
@@ -49,7 +50,7 @@
 // How often to poll for webserial actions
 #define POLL_DELAY_MS 500
 
-// Set a watchdog timeer that is a little longer than the heartbeat period
-#define WDT_TIMEOUT ((int)(HEARTBEAT_PERIOD_S * 1.5))
+// Set a short watchdog timer
+#define WDT_TIMEOUT_S 10
 
 #endif

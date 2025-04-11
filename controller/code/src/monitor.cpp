@@ -11,6 +11,7 @@
 #include <esp_task_wdt.h>
 #include "esp_system.h"
 
+#include <Logger.h>
 #include "FanControl.h"
 #include "WindowControl.h"
 #include "SensorControl.h"
@@ -19,7 +20,7 @@
 #include "AdminAccess.h"
 #include "TimeHandler.h"
 #include "InfluxDBHandler.h"
-#include "Logger.h"
+//#include "Telemetry.h"
 
 //----------------------------------------------------
 // Globals
@@ -30,6 +31,7 @@ SensorControl *SENSOR;
 ClimateControl *CLIMATE;
 AdminAccess *ADMIN;
 InfluxDBHandler *INFLUX;
+//Telemetry *TELEMETRY;
 Logger *LOGGER;
 
 long last_heartbeat_ms = millis();
@@ -207,30 +209,31 @@ void setup() {
 
 	LOGGER->log("Greenhouse monitor power cycled, starting up ...");
 
-    // Now that WiFi and the logger are initialized, check for a reset
-    check_for_reset();
-
     TimeHandler::init_ntp();
-
-    LOGGER->log("Synced time with NTP");
 
     FAN = new FanControl(FAN_CONTROL_PIN);
     WINDOW = new WindowControl(WINDOW_OPEN_PIN, WINDOW_CLOSE_PIN);
     SENSOR = new SensorControl(DT22_PIN);
     CLIMATE = new ClimateControl(SENSOR);
     ADMIN = new AdminAccess(FAN, WINDOW, CLIMATE);
+    //TELEMETRY = new Telemetry(INFLUXDB_URL, TELEMETRY_DB);
     INFLUX = new InfluxDBHandler(INFLUXDB_URL, INFLUXDB_DB, DEVICE, WIFI_SSID);
 
     if (LOG_TO_INFLUX) {
         INFLUX->enable_logging();
+//        TELEMETRY->enable();
     } else {
         INFLUX->disable_logging();
+//        TELEMETRY->disable();
     }
 
     register_admin_commands();
 
+    // See if there is a reset reason for the last restart
+    check_for_reset();
+
     // Initialize the Watchdog Timer
-    esp_task_wdt_init(WDT_TIMEOUT, true);
+    esp_task_wdt_init(WDT_TIMEOUT_S, true);
     // Add the current task to the Watchdog Timer, (the behavior when the task handler == NULL)
     esp_task_wdt_add(NULL);
   }

@@ -1,11 +1,15 @@
 #include <TimeHandler.h>
 
+extern Logger *LOGGER;
+
 void TimeHandler::init_ntp() {
   // Accurate time is necessary for certificate validation and writing in batches
   //timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
   Serial.print("Syncing time with NTP ... ");
   configTzTime(TIME_ZONE, NTP_SERVER_1, NTP_SERVER_2);
   Serial.println("done");
+
+  LOGGER->log("Synced time with NTP");
 }
 
 void TimeHandler::localTimeString(char* datetime) {
