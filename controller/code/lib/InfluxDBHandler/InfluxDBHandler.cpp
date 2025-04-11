@@ -11,8 +11,6 @@ InfluxDBHandler::InfluxDBHandler(const String &url, const String &db, const char
     window_event = new Point("window_events");
     fan_event = new Point("fan_events");
 
-	return;
-
     client = new InfluxDBClient(url, db);
 
     // Setup tags to send with influx datapoints
