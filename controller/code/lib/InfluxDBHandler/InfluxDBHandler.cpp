@@ -1,4 +1,5 @@
 #include <InfluxDBHandler.h>
+#include "WirelessControl.h"
 
 extern Logger *LOGGER;
 
@@ -9,6 +10,8 @@ InfluxDBHandler::InfluxDBHandler(const String &url, const String &db, const char
     sensor = new Point("weather");
     window_event = new Point("window_events");
     fan_event = new Point("fan_events");
+
+	return;
 
     client = new InfluxDBClient(url, db);
 
@@ -24,7 +27,7 @@ InfluxDBHandler::InfluxDBHandler(const String &url, const String &db, const char
         LOGGER->log_error("InfluxDB connection failed: " + client->getLastErrorMessage());
     }
 
-    if (log_events) {
+    if (log_events && WirelessControl::is_connected) {
         LOGGER->log("Logging events to InfluxDB is enabled");
     }
 }
@@ -34,10 +37,11 @@ bool InfluxDBHandler::add_reading(float temp, float humidity) {
     sensor->clearFields();
 
     // Store temp & humidity
-    sensor->addField("temperature",temp);
+    sensor->addField("temperature", temp);
     sensor->addField("humidity", humidity);
 
-    if (!log_events) {
+    // Can we log this event?
+    if (!log_events || !WirelessControl::is_connected) {
         return true;
     }
 
@@ -53,7 +57,7 @@ bool InfluxDBHandler::annotate(Point *point, const char *reason, float trigger) 
     point->addField("reason", reason);
     point->addField("trigger", trigger);
   
-    if (!log_events) {
+    if (!log_events || !WirelessControl::is_connected) {
         return true;
     }
 

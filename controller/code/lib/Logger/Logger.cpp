@@ -1,4 +1,5 @@
-#include "Logger.h"
+#include <Logger.h>
+#include "WirelessControl.h"
 
 WiFiUDP udpClient;
 
@@ -10,13 +11,28 @@ bool Logger::log(String msg) {
 }
 
 bool Logger::log_info(String msg) {
+	if (!WirelessControl::is_connected) {
+		// Don't log if we don't have a connection
+		Serial.println("WiFi disconnected: Syslog serial fallback [info]: " + msg);
+		return false;
+	}
 	return syslog.log(LOG_INFO, msg.c_str());
 }
 
 bool Logger::log_error(String msg) {
+	if (!WirelessControl::is_connected) {
+		// Don't log if we don't have a connection
+		Serial.println("WiFi disconnected: Syslog serial fallback [error]: " + msg);
+		return false;
+	}
 	return syslog.log(LOG_ERR, msg.c_str());
 }
 
 bool Logger::log_debug(String msg) {
+	if (!WirelessControl::is_connected) {
+		// Don't log if we don't have a connection
+		Serial.println("WiFi disconnected: Syslog serial fallback [debug]: " + msg);
+		return false;
+	}
 	return syslog.log(LOG_DEBUG, msg.c_str());
 }

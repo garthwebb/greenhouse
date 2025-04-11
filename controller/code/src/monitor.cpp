@@ -263,7 +263,7 @@ void loop() {
 
 	if (millis() > last_heartbeat_ms + HEARTBEAT_PERIOD_MS) {
         float temp = temperatureRead();
-		LOGGER->log("Greenhouse monitor running: temp=" + String(temp) + "C / last colllection=" + String(millis() - last_collection_ms) + "ms)");
+		LOGGER->log("Greenhouse monitor running: last colllection=" + String(millis() - last_collection_ms) + "ms)");
 		last_heartbeat_ms = millis();
 	}
 

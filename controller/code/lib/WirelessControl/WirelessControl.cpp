@@ -14,7 +14,30 @@ void WirelessControl::init_wifi(const char *ssid, const char *passwd) {
 
     WiFi.begin(ssid, passwd);
 
-	monitor();
+	while (!connect()) {
+        Serial.print("Failed to connect to WiFi, retrying...");
+        WiFi.disconnect();
+        WiFi.reconnect();
+    }
+
+    is_connected = true;
+    Serial.println("Connected to " + String(ssid) + " with IP " + WiFi.localIP().toString());
+}
+
+bool WirelessControl::connect() {
+    int status = WiFi.status();
+    while (status != WL_CONNECTED) {
+        delay(WIFI_CONNECT_WAIT);
+        Serial.print(".");
+        status = WiFi.status();
+    }
+
+    if (is_error_status(status)) {
+        printStatus(status);
+        return false;
+    }
+
+    return true;
 }
 
 void WirelessControl::monitor() {
@@ -34,50 +57,52 @@ void WirelessControl::monitor() {
         WiFi.reconnect();
 	}
 
-    // Don't wait to see if we are connected here, 'monitor' should be called in the main
-    // loop, so we should get here again if the connection failed.  This also means that
-    // 'monitor' assumes the loop has a delay such that this isn't getting called rapidly
-    // while a connectinon is being reestablished.
-    while (status != WL_CONNECTED) {
-        printStatus(status);
+    // Wait here long enough to get a success or error status.  Don't retry
+    // immediately if error, instead, exit and wait for the next call to monitor() 
+    while (is_neutral_status(status)) {
         delay(WIFI_CONNECT_WAIT);
         status = WiFi.status();
-  	}
+    }
+
+    if (is_error_status(status)) {
+        printStatus(status);
+        return;
+    }
 
 	// Log that we lost a connection but are now reconnected
 	if (was_connected) {
 		LOGGER->log_error("WiFi connection was lost");
 	}
 
-  LOGGER->log("Connected to " + WiFi.SSID() + " with IP " + WiFi.localIP().toString());
+    LOGGER->log("Connected to " + WiFi.SSID() + " with IP " + WiFi.localIP().toString());
 	Serial.println("Connected to " + WiFi.SSID() + " with IP " + WiFi.localIP().toString());
  	is_connected = true;
 }
 
 void WirelessControl::listNetworks() {
-  // scan for nearby networks:
-  Serial.println("** Scanning Networks **");
-  int numSsid = WiFi.scanNetworks();
-  if (numSsid == -1) {
-    Serial.println("Couldn't get a wifi connection");
-    return;
-  }
+    // scan for nearby networks:
+    Serial.println("** Scanning Networks **");
+    int numSsid = WiFi.scanNetworks();
+    if (numSsid == -1) {
+        Serial.println("Couldn't get a wifi connection");
+        return;
+    }
 
-  // print the list of networks seen:
-  Serial.print("Number of available networks: ");
-  Serial.println(numSsid);
+    // print the list of networks seen:
+    Serial.print("Number of available networks: ");
+    Serial.println(numSsid);
 
-  // print the network number and name for each network found:
-  for (int thisNet = 0; thisNet < numSsid; thisNet++) {
-    Serial.print(thisNet);
-    Serial.print(") ");
-    Serial.print(WiFi.SSID(thisNet));
-    Serial.print("\tSignal: ");
-    Serial.print(WiFi.RSSI(thisNet));
-    Serial.print(" dBm");
-    Serial.print("\tEncryption: ");
-    printEncryptionType(WiFi.encryptionType(thisNet));
-  }
+    // print the network number and name for each network found:
+    for (int thisNet = 0; thisNet < numSsid; thisNet++) {
+        Serial.print(thisNet);
+        Serial.print(") ");
+        Serial.print(WiFi.SSID(thisNet));
+        Serial.print("\tSignal: ");
+        Serial.print(WiFi.RSSI(thisNet));
+        Serial.print(" dBm");
+        Serial.print("\tEncryption: ");
+        printEncryptionType(WiFi.encryptionType(thisNet));
+    }
 }
 
 void WirelessControl::printEncryptionType(int thisType) {
@@ -121,31 +146,56 @@ void WirelessControl::printEncryptionType(int thisType) {
 
 void WirelessControl::printStatus(uint8_t status) {
     switch (status) {
-      case WL_NO_SHIELD:
-        Serial.println("\tResult: No sheild");
-        break;
-      case WL_IDLE_STATUS:
-        Serial.println("\tResult: Idle");
-        break;
-      case WL_NO_SSID_AVAIL:
-        Serial.println("\tResult: No SSID available");
-        break;
-      case WL_SCAN_COMPLETED:
-        Serial.println("\tResult: Scan completed");
-        break;
-      case WL_CONNECTED:
-        Serial.println("\tResult: Connected");
-        break;
-      case WL_CONNECT_FAILED:
-        Serial.println("\tResult: Connect failed");
-        break;
-      case WL_CONNECTION_LOST:
-        Serial.println("\tResult: Connection lost");
-        break;
-      case WL_DISCONNECTED:
-        Serial.println("\tResult: disconnected");
-        break;
-      default:
-        Serial.println("\tResult: unknown return");
+        case WL_NO_SHIELD:
+            Serial.println("\tResult: No sheild");
+            break;
+        case WL_IDLE_STATUS:
+            Serial.println("\tResult: Idle");
+            break;
+        case WL_NO_SSID_AVAIL:
+            Serial.println("\tResult: No SSID available");
+            break;
+        case WL_SCAN_COMPLETED:
+            Serial.println("\tResult: Scan completed");
+            break;
+        case WL_CONNECTED:
+            Serial.println("\tResult: Connected");
+            break;
+        case WL_CONNECT_FAILED:
+            Serial.println("\tResult: Connect failed");
+            break;
+        case WL_CONNECTION_LOST:
+            Serial.println("\tResult: Connection lost");
+            break;
+        case WL_DISCONNECTED:
+            Serial.println("\tResult: disconnected");
+            break;
+        default:
+            Serial.println("\tResult: unknown return");
     }
+}
+
+bool WirelessControl::is_error_status(uint8_t status) {
+    if (status == WL_NO_SSID_AVAIL || status == WL_CONNECT_FAILED || status == WL_CONNECTION_LOST) {
+        return true;
+    }
+    return false;
+}
+
+bool WirelessControl::is_success_status(uint8_t status) {
+    if (status == WL_CONNECTED) {
+        return true;
+    }
+    return false;
+}
+
+bool WirelessControl::is_neutral_status(uint8_t status) {
+    if (status == WL_IDLE_STATUS || status == WL_SCAN_COMPLETED || WL_DISCONNECTED) {
+        return true;
+    }
+    return false;
+}
+
+int8_t WirelessControl::get_rssi() {
+    return WiFi.RSSI();
 }
