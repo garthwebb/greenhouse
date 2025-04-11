@@ -20,7 +20,7 @@
 #include "AdminAccess.h"
 #include "TimeHandler.h"
 #include "InfluxDBHandler.h"
-//#include "Telemetry.h"
+#include "Telemetry.h"
 
 //----------------------------------------------------
 // Globals
@@ -31,7 +31,7 @@ SensorControl *SENSOR;
 ClimateControl *CLIMATE;
 AdminAccess *ADMIN;
 InfluxDBHandler *INFLUX;
-//Telemetry *TELEMETRY;
+Telemetry *TELEMETRY;
 Logger *LOGGER;
 
 long last_heartbeat_ms = millis();
@@ -216,15 +216,19 @@ void setup() {
     SENSOR = new SensorControl(DT22_PIN);
     CLIMATE = new ClimateControl(SENSOR);
     ADMIN = new AdminAccess(FAN, WINDOW, CLIMATE);
-    //TELEMETRY = new Telemetry(INFLUXDB_URL, TELEMETRY_DB);
+    TELEMETRY = new Telemetry(INFLUXDB_URL, TELEMETRY_DB);
     INFLUX = new InfluxDBHandler(INFLUXDB_URL, INFLUXDB_DB, DEVICE, WIFI_SSID);
 
     if (LOG_TO_INFLUX) {
         INFLUX->enable_logging();
-//        TELEMETRY->enable();
     } else {
         INFLUX->disable_logging();
-//        TELEMETRY->disable();
+    }
+
+    if (LOG_TELEMETRY) {
+        TELEMETRY->enable();
+    } else {
+        TELEMETRY->disable();
     }
 
     register_admin_commands();
@@ -238,18 +242,21 @@ void setup() {
     esp_task_wdt_add(NULL);
   }
 
-long last_collection_ms = millis();
-void loop() {    
+// Make sure we start with an immediate reading
+long last_collection_ms = millis() - COLLECTION_PERIOD_MS;
+void loop() {
     // Make sure we still have a wifi connection
     WirelessControl::monitor();
 
     // Determine when we're done waiting
-    if (millis() > last_collection_ms + COLLECTION_PERIOD_MS) {
+    if (millis() >= last_collection_ms + COLLECTION_PERIOD_MS) {
         // Send a new reading to InfluxDB
         record_new_reading();
 
         // Make decisions on fan and window control based on current temperature and humidity
         CLIMATE->monitor();
+
+        TELEMETRY->report();
 
         last_collection_ms = millis();
     }

@@ -7,8 +7,6 @@ Telemetry::Telemetry(const String &url, const String &db) {
     LOGGER->log("Initializing Telemtry logger");
     Serial.println("Initialziing Telemtry logger: ");
 
-	return;
-
     client = new InfluxDBClient(url, db);
 
     if (client->validateConnection()) {
@@ -26,6 +24,7 @@ Telemetry::Telemetry(const String &url, const String &db) {
 
 bool Telemetry::report() {
 	Serial.println("Reporting telemetry data");
+
 	float chipTemp = temperatureRead();
 	float voltage = 3.3; // Replace with a constant or an appropriate function to retrieve the voltage
 	float freeHeap = esp_get_free_heap_size();
@@ -46,7 +45,6 @@ bool Telemetry::report() {
 	String revision = String(chip_info.revision);
 	String cores = String(chip_info.cores);
 
-	Serial.println("Ading telemetry data to a point");
 	Point telemetry("host_info");
 	telemetry.addTag("device", device);
 	telemetry.addTag("SSID", ssid);
@@ -63,18 +61,14 @@ bool Telemetry::report() {
 	telemetry.addField("rssi", rssi);
 	telemetry.addField("uptime", uptime);
 
-	Serial.println("Telemetry data: " + telemetry.toLineProtocol());
 	if (!log_events || !WirelessControl::is_connected) {
 		return true;
 	}
 
-	Serial.println("Writing telemetry data to InfluxDB");
 	if (!client->writePoint(telemetry)) {
 		LOGGER->log_error("Failed to add telemetry: " + client->getLastErrorMessage());
 		return false;
 	}
-
-	Serial.println("Telemetry data written to InfluxDB");
 
 	return true;
 }

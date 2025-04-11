@@ -27,6 +27,7 @@
 #define TELEMETRY_DB "telemetry"
 // Quickly enable/disable infux logging
 #define LOG_TO_INFLUX true
+#define LOG_TELEMETRY true
 
 // Temp we want the greenhouse
 #define TARGET_TEMP_F 70
@@ -46,9 +47,6 @@
 // Send a heartbeat every 10 minutes to the logger
 #define HEARTBEAT_PERIOD_S (10 * 60)
 #define HEARTBEAT_PERIOD_MS (1000 * HEARTBEAT_PERIOD_S)
-
-// How often to poll for webserial actions
-#define POLL_DELAY_MS 500
 
 // Set a short watchdog timer
 #define WDT_TIMEOUT_S 10
