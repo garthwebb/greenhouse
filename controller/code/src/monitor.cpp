@@ -199,11 +199,6 @@ void setup() {
     // Start serial communication
     Serial.begin(SERIAL_SPEED);
 
-    // Initialize the Watchdog Timer
-    esp_task_wdt_init(WDT_TIMEOUT, true);
-    // Add the current task to the Watchdog Timer, (the behavior when the task handler == NULL)
-    esp_task_wdt_add(NULL);
-
 	// Initialize the logger so WirelessControl can use it, but LOGGER should not be used
 	// until after the init_wifi() returns
     LOGGER = new Logger();
@@ -233,35 +228,39 @@ void setup() {
     }
 
     register_admin_commands();
+
+    // Initialize the Watchdog Timer
+    esp_task_wdt_init(WDT_TIMEOUT, true);
+    // Add the current task to the Watchdog Timer, (the behavior when the task handler == NULL)
+    esp_task_wdt_add(NULL);
   }
 
-void loop() {
-    long loop_start_ms = millis();
-    
+long last_collection_ms = millis();
+void loop() {    
     // Make sure we still have a wifi connection
     WirelessControl::monitor();
 
-    // Send a new reading to InfluxDB
-    record_new_reading();
+    // Determine when we're done waiting
+    if (millis() > last_collection_ms + COLLECTION_PERIOD_MS) {
+        // Send a new reading to InfluxDB
+        record_new_reading();
 
-    // Make decisions on fan and window control based on current temperature and humidity
-    CLIMATE->monitor();
+        // Make decisions on fan and window control based on current temperature and humidity
+        CLIMATE->monitor();
+
+        last_collection_ms = millis();
+    }
 
     handle_fan_control();
     handle_window_control();
 
-    // Determine when we're done waiting
-    while (millis() < loop_start_ms + COLLECTION_PERIOD_MS) {
-        // While we are between collection periods, check for webserial commands and monitor the window
-        ADMIN->handle_commands();
-        WINDOW->monitor();
-
-        delay(POLL_DELAY_MS);
-    }
+    // While we are between collection periods, check for webserial commands and monitor the window
+    ADMIN->handle_commands();
+    WINDOW->monitor();
 
 	if (millis() > last_heartbeat_ms + HEARTBEAT_PERIOD_MS) {
         float temp = temperatureRead();
-		LOGGER->log("Greenhouse monitor running: temp=" + String(temp) + "C / last loop=" + String(millis() - loop_start_ms) + "ms)");
+		LOGGER->log("Greenhouse monitor running: temp=" + String(temp) + "C / last colllection=" + String(millis() - last_collection_ms) + "ms)");
 		last_heartbeat_ms = millis();
 	}
 
