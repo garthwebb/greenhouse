@@ -18,6 +18,12 @@
 #define WINDOW_CLOSE_PIN 32
 #define FAN_CONTROL_PIN 25
 
+// Syslog server connection info
+#define SYSLOG_SERVER "tigerbackup.local"
+#define SYSLOG_PORT 514
+#define DEVICE_HOSTNAME "greenhouse-esp32"
+#define APP_NAME "env-control"
+
 #define ENABLE_ADMIN_ACCESS true
 
 //-- Influx DB

@@ -1,0 +1,3 @@
+[submodule "controller/code/lib/embedded-shared"]
+	path = controller/code/lib/embedded-shared
+	url = git@github.com:garthwebb/embedded-shared.git

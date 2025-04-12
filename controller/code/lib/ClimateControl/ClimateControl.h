@@ -5,6 +5,7 @@
 
 #include "Logger.h"
 #include "SensorControl.h"
+#include "monitor.h"
 
 // Temp delta we define as "rapid" and should assume its still going up
 #define RAPID_RISE_TEMP_DELTA 10

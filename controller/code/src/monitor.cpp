@@ -204,8 +204,9 @@ void setup() {
 	// Initialize the logger so WirelessControl can use it, but LOGGER should not be used
 	// until after the init_wifi() returns
     LOGGER = new Logger();
+    LOGGER->init(SYSLOG_SERVER, SYSLOG_PORT, DEVICE_HOSTNAME, APP_NAME);
 
-    WirelessControl::init_wifi(WIFI_SSID, WIFI_PASSWORD);
+    WirelessControl::init_wifi(WIFI_SSID, WIFI_PASSWORD, HOSTNAME);
 
 	LOGGER->log("Greenhouse monitor power cycled, starting up ...");
 
@@ -216,7 +217,7 @@ void setup() {
     SENSOR = new SensorControl(DT22_PIN);
     CLIMATE = new ClimateControl(SENSOR);
     ADMIN = new AdminAccess(FAN, WINDOW, CLIMATE);
-    TELEMETRY = new Telemetry(INFLUXDB_URL, TELEMETRY_DB);
+    TELEMETRY = new Telemetry(INFLUXDB_URL, TELEMETRY_DB, DEVICE_HOSTNAME);
     INFLUX = new InfluxDBHandler(INFLUXDB_URL, INFLUXDB_DB, DEVICE, WIFI_SSID);
 
     if (LOG_TO_INFLUX) {
