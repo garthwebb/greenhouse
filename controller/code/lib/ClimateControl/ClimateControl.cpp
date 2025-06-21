@@ -2,7 +2,7 @@
 
 extern Logger *LOGGER;
 
-ClimateControl::ClimateControl(SensorControl *sensor) : _sensor(sensor) {
+ClimateControl::ClimateControl(TempHumiditySensor *sensor) : _sensor(sensor) {
 	// Initialize all history values to the current temperature 
   	for (int i = 0; i < TEMP_HISTORY_DEPTH; i++) {
 		_temp_history[i] = _sensor->current_temperature();

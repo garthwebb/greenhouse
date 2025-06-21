@@ -6,17 +6,44 @@
 //----------------------------------------------------
 // Defines
 
+#ifndef HOSTNAME
 #define HOSTNAME "greenhouse-esp32"
+#endif
 
 #define DEVICE "ESP32"
 
 #define SERIAL_SPEED 115200
 
-//---- GPIO Pins
+//---- GPIO Pins : Set defaults but defer to the platformio file for specific boards for pin numbers
+
+// Main temp+humidity sensor
+#ifndef DT22_PIN
 #define DT22_PIN 13
+#endif
+
+#ifndef WINDOW_OPEN_PIN
 #define WINDOW_OPEN_PIN 33
+#endif
+
+#ifndef WINDOW_CLOSE_PIN
 #define WINDOW_CLOSE_PIN 32
+#endif
+
+#ifndef FAN_CONTROL_PIN
 #define FAN_CONTROL_PIN 25
+#endif
+
+#ifndef MIST_CONTROL_PIN
+#define MIST_CONTROL_PIN 25
+#endif
+
+//---- Temperature Sensors
+#ifndef ONE_WIRE_BUS_PIN
+#define ONE_WIRE_BUS_PIN D8
+#endif
+
+#define ONE_WIRE_SETTLE_MILLIS 500
+
 
 // Syslog server connection info
 #define SYSLOG_SERVER "tigerbackup.local"
@@ -30,9 +57,21 @@
 #define INFLUXDB_URL "http://192.168.3.88:8086"
 #define INFLUXDB_DB "greenhouse"
 #define TELEMETRY_DB "telemetry"
-// Quickly enable/disable infux logging
+
+// Quickly enable/disable infux logging.  Can be controlled via platformio.ini
+#ifndef LOG_TO_INFLUX
 #define LOG_TO_INFLUX true
+#endif
+
+// Quickly enable/disable telemetry logging via syslog.  Can be controlled via platformio.ini
+#ifndef LOG_TELEMETRY
 #define LOG_TELEMETRY true
+#endif
+
+// Whether to log to a central syslog server
+#ifndef LOG_TO_SYSLOG
+#define LOG_TO_SYSLOG true
+#endif
 
 // Temp we want the greenhouse
 #define TARGET_TEMP_F 70

@@ -15,6 +15,7 @@ AdminAccess::AdminAccess(FanControl *fan, WindowControl *window, ClimateControl 
     server->begin();
 
     LOGGER->log("AdminAccess available at: http://" + WiFi.localIP().toString() + "/webserial");
+    Serial.println("AdminAccess available at: http://" + WiFi.localIP().toString() + "/webserial");
 }
 
 void AdminAccess::onMessage(uint8_t *data, size_t len) {

@@ -14,7 +14,7 @@
 #include <Logger.h>
 #include "FanControl.h"
 #include "WindowControl.h"
-#include "SensorControl.h"
+#include "TempHumiditySensor.h"
 #include "ClimateControl.h"
 #include "WirelessControl.h"
 #include "AdminAccess.h"
@@ -27,7 +27,7 @@
 
 FanControl *FAN;
 WindowControl *WINDOW;
-SensorControl *SENSOR;
+TempHumiditySensor *SENSOR;
 ClimateControl *CLIMATE;
 AdminAccess *ADMIN;
 InfluxDBHandler *INFLUX;
@@ -214,7 +214,7 @@ void setup() {
 
     FAN = new FanControl(FAN_CONTROL_PIN);
     WINDOW = new WindowControl(WINDOW_OPEN_PIN, WINDOW_CLOSE_PIN);
-    SENSOR = new SensorControl(DT22_PIN);
+    SENSOR = new TempHumiditySensor(DT22_PIN);
     CLIMATE = new ClimateControl(SENSOR);
     ADMIN = new AdminAccess(FAN, WINDOW, CLIMATE);
     TELEMETRY = new Telemetry(INFLUXDB_URL, TELEMETRY_DB, HOSTNAME);

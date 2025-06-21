@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 #include "Logger.h"
-#include "SensorControl.h"
+#include "TempHumiditySensor.h"
 #include "monitor.h"
 
 // Temp delta we define as "rapid" and should assume its still going up
@@ -25,14 +25,14 @@
 class ClimateControl {
     private:
 	float _temp_history[TEMP_HISTORY_DEPTH];
-	SensorControl *_sensor;
+	TempHumiditySensor *_sensor;
 
 	// Return the detla between the temp "minutes" minutes ago and now
 	float _temp_delta_over(uint16_t minutes);
 
     public:
 
-    ClimateControl(SensorControl *sensor);
+    ClimateControl(TempHumiditySensor *sensor);
 	void monitor();
 
     float current_temperature();
