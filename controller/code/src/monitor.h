@@ -44,6 +44,16 @@
 
 #define ONE_WIRE_SETTLE_MILLIS 500
 
+//---- How to access external settings
+#ifndef SETTINGS_HOST
+#define SETTINGS_HOST "tigerbackup.local"
+#endif
+#ifndef SETTINGS_PORT
+#define SETTINGS_PORT 80
+#endif
+#ifndef SETTINGS_PATH
+#define SETTINGS_PATH "/greenhouse/settings.json"
+#endif
 
 // Syslog server connection info
 #define SYSLOG_SERVER "tigerbackup.local"

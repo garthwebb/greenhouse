@@ -21,6 +21,7 @@
 #include "TimeHandler.h"
 #include "InfluxDBHandler.h"
 #include "Telemetry.h"
+#include "ExternalSettings.h"
 
 //----------------------------------------------------
 // Globals
@@ -33,6 +34,7 @@ AdminAccess *ADMIN;
 InfluxDBHandler *INFLUX;
 Telemetry *TELEMETRY;
 Logger *LOGGER;
+ExternalSettings *SETTINGS;
 
 long last_heartbeat_ms = millis();
 
@@ -212,6 +214,8 @@ void setup() {
 
     TimeHandler::init_ntp();
 
+    SETTINGS = new ExternalSettings(SETTINGS_HOST, SETTINGS_PORT, SETTINGS_PATH);
+
     FAN = new FanControl(FAN_CONTROL_PIN);
     WINDOW = new WindowControl(WINDOW_OPEN_PIN, WINDOW_CLOSE_PIN);
     SENSOR = new TempHumiditySensor(DT22_PIN);
@@ -251,6 +255,9 @@ void loop() {
 
     // Determine when we're done waiting
     if (millis() >= last_collection_ms + COLLECTION_PERIOD_MS) {
+        // Check and load new settings if they've changed
+        SETTINGS->monitor();
+
         // Send a new reading to InfluxDB
         record_new_reading();
 
