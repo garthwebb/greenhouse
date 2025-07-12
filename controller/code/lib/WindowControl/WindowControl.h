@@ -11,12 +11,12 @@
 
 class WindowControl {
     private:
-    uint8_t control_pin_open;
-    uint8_t control_pin_close;
+    uint8_t _control_pin_open;
+    uint8_t _control_pin_close;
+    bool _is_open = false;
+    bool _is_moving = false;
 
     public:
-    bool is_open = false;
-    bool is_moving = false;
     long move_start_ms = 0;
     long last_open_time_ms = 0;
 
@@ -27,6 +27,11 @@ class WindowControl {
     void monitor();
     long millis_since_open();
     long seconds_since_open();
+
+    bool is_open();
+    bool is_closed();
+    bool is_moving();
+    bool is_stopped();
 };
 
 #endif
