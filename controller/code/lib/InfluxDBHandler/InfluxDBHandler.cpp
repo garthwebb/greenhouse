@@ -3,104 +3,86 @@
 
 extern Logger *LOGGER;
 
-InfluxDBHandler::InfluxDBHandler(const String &url, const String &db, const char *device, const char *ssid) {
+InfluxDBHandler::InfluxDBHandler(const String &url, const String &db, const char *device) : _device(device) {
     LOGGER->log("Initializing InfluxDBHandler");
     Serial.println("Initialziing InfluxDB: ");
- 
-    sensor = new Point("weather");
-    window_event = new Point("window_events");
-    fan_event = new Point("fan_events");
 
-    client = new InfluxDBClient(url, db);
+    _client = new InfluxDBClient(url, db);
 
-    // Setup tags to send with influx datapoints
-    sensor->addTag("device", device);
-    sensor->addTag("SSID", ssid);
-
-    if (client->validateConnection()) {
-        Serial.println("\tConnected to InfluxDB: " + client->getServerUrl());
-        LOGGER->log("Connected to InfluxDB at " + client->getServerUrl());
+    if (_client->validateConnection()) {
+        Serial.println("\tConnected to InfluxDB: " + _client->getServerUrl());
+        LOGGER->log("Connected to InfluxDB at " + _client->getServerUrl());
     } else {
-        Serial.println("\tInfluxDB connection failed: " + client->getLastErrorMessage());
-        LOGGER->log_error("InfluxDB connection failed: " + client->getLastErrorMessage());
+        Serial.println("\tInfluxDB connection failed: " + _client->getLastErrorMessage());
+        LOGGER->log_error("InfluxDB connection failed: " + _client->getLastErrorMessage());
     }
 
-    if (log_events && WirelessControl::is_connected) {
+    if (WirelessControl::is_connected) {
         LOGGER->log("Logging events to InfluxDB is enabled");
     }
 }
 
-bool InfluxDBHandler::add_reading(float temp, float humidity) {
-    // Clear fields for reusing the point. Tags will remain untouched
-    sensor->clearFields();
+bool InfluxDBHandler::write_sensor_metric(const char *sensor_id, const String &measurement, float value) {
+    Point sensor("weather");
+    sensor.addTag("device", _device);
+    sensor.addTag("sensor_id", sensor_id);
+    sensor.addField(measurement, value);
 
-    // Store temp & humidity
-    sensor->addField("temperature", temp);
-    sensor->addField("humidity", humidity);
+    return _write_metric(&sensor);
+}
 
-    // Can we log this event?
-    if (!log_events || !WirelessControl::is_connected) {
+bool InfluxDBHandler::write_event_metric(const String &event_type, bool state, const char *reason) {
+    Point event("events");
+    event.addTag("device", _device);
+    event.addTag("reason", reason);
+    event.addField(event_type, state);
+
+    return _write_metric(&event);
+}
+
+bool InfluxDBHandler::_write_metric(Point *point) {
+    if (!WirelessControl::is_connected) {
         return true;
     }
 
-    if (!client->writePoint(*sensor)) {
-        LOGGER->log_error("Failed to add reading: " + last_error());
+    if (!_client->writePoint(*point)) {
+        String error_msg = last_error();
+        if (error_msg.length() > 0) {
+            LOGGER->log_error("Failed to write metric: " + error_msg);
+            Serial.println("Failed to write point " + point->toLineProtocol() + ": " + error_msg);
+        } else {
+            LOGGER->log_error("Failed to write metric: Unknown InfluxDB error");
+            Serial.println("Failed to write point " + point->toLineProtocol() + ": Unknown InfluxDB error");
+        }
         return false;
     }
 
     return true;
 }
 
-bool InfluxDBHandler::annotate(Point *point, const char *reason, float trigger) {
-    point->addField("reason", reason);
-    point->addField("trigger", trigger);
-  
-    if (!log_events || !WirelessControl::is_connected) {
-        return true;
-    }
-
-    if (!client->writePoint(*point)) {
-        LOGGER->log_error("Failed to add annotation: " + last_error());
-        return false;
-    }
-
-    return true;
+bool InfluxDBHandler::event_fan_on(const char *reason) {
+    return write_event_metric("fan_on", true, reason);
 }
 
-bool InfluxDBHandler::annotate_fan_on(const char *reason, float trigger) {
-    fan_event->clearFields();
-    fan_event->addField("fan_on", true);
-    return annotate(fan_event, reason, trigger);
+bool InfluxDBHandler::event_fan_off(const char *reason) {
+    return write_event_metric("fan_on", false, reason);
 }
 
-bool InfluxDBHandler::annotate_fan_off(const char *reason, float trigger) {
-    fan_event->clearFields();
-    fan_event->addField("fan_on", false);
-    return annotate(fan_event, reason, trigger);
+bool InfluxDBHandler::event_window_open(const char *reason) {
+    return write_event_metric("window_open", true, reason);
 }
 
-bool InfluxDBHandler::annotate_window_open(const char *reason, float trigger) {
-    window_event->clearFields();
-    window_event->addField("is_open", true);
-    return annotate(window_event, reason, trigger);
+bool InfluxDBHandler::event_window_closed(const char *reason) {
+    return write_event_metric("window_open", false, reason);
 }
 
-bool InfluxDBHandler::annotate_window_closed(const char *reason, float trigger) {
-    window_event->clearFields();
-    window_event->addField("is_open", false);
-    return annotate(window_event, reason, trigger);
+bool InfluxDBHandler::event_mist_on(const char *reason) {
+    return write_event_metric("mist_on", true, reason);
+}
+bool InfluxDBHandler::event_mist_off(const char *reason) {
+    return write_event_metric("mist_on", false, reason);
 }
 
 String InfluxDBHandler::last_error() {
-    return client->getLastErrorMessage();
-}
-
-void InfluxDBHandler::enable_logging() {
-    LOGGER->log("Logging events to InfluxDB is enabled");
-    log_events = true;
-}
-
-void InfluxDBHandler::disable_logging() {
-    LOGGER->log("Logging events to InfluxDB is *disabled*");
-    log_events = false;
+    return _client->getLastErrorMessage();
 }
