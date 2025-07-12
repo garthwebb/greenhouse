@@ -1,11 +1,14 @@
 #include "LightSensor.h"
 
+extern Logger *LOGGER;
+
 LightSensor::LightSensor(): _tsl(SENSOR_ID) {
 	if (_tsl.begin()) {
 		Serial.println(F("Found a TSL2591 sensor"));
 		_initialized = true;
 	  } else {
 		Serial.println(F("No sensor found ... check your wiring?"));
+		LOGGER->log_error("No TSL2591 light sensor found.");
 		return;
 	  }
 		

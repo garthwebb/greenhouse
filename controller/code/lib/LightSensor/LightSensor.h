@@ -5,6 +5,8 @@
 #include <Adafruit_Sensor.h>
 #include "Adafruit_TSL2591.h"
 
+#include "Logger.h"
+
 // This seems arbitrary, but keep what was used in the example
 #define SENSOR_ID 2591
 
