@@ -10,10 +10,9 @@
 #include <string>
 
 #include "Logger.h"
-#include "FanControl.h"
-#include "WindowControl.h"
 #include "ClimateControl.h"
 #include "TimeHandler.h"
+#include "ExternalSettings.h"
 
 #define ADMIN_PORT 80
 
@@ -23,19 +22,20 @@ class AdminAccess {
     std::map<std::string, bool> cmd_triggers;
     std::map<std::string, std::function<void(std::string)>> handlers;
 
-    FanControl *_fan;
-    WindowControl *_window;
+    ExternalSettings *_settings;
+	ControlObjects *_controls;
+    SensorObjects *_sensors;
     ClimateControl *_climate;
 
     public:
-    AdminAccess(FanControl *fan, WindowControl *window, ClimateControl *_climate);
+    AdminAccess(ExternalSettings *settings, ControlObjects *controls, SensorObjects *sensors, ClimateControl *climate);
     void onMessage(uint8_t *data, size_t len);
     void handle_commands();
     void register_command(std::string cmd,  std::function<void()>);
     void register_command(std::string cmd,  std::function<void(std::string)>);
 
+    void print_help();
     void print_status();
-    void print_temp_history();
     void print_delta();
 };
 

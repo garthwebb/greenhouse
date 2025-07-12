@@ -2,8 +2,8 @@
 
 extern Logger *LOGGER;
 
-AdminAccess::AdminAccess(FanControl *fan, WindowControl *window, ClimateControl *climate)
-     : _fan(fan), _window(window), _climate(climate) {
+AdminAccess::AdminAccess(ExternalSettings *settings, ControlObjects *controls, SensorObjects *sensors, ClimateControl *climate)
+     : _settings(settings), _controls(controls), _sensors(sensors), _climate(climate) {
     LOGGER->log("Initializing AdminAccess");
     server = new AsyncWebServer(ADMIN_PORT);
 
@@ -30,6 +30,9 @@ void AdminAccess::onMessage(uint8_t *data, size_t len) {
     if (cmd_triggers.find(cmd) == cmd_triggers.end()) {
         Serial.println("\tignoring unknown command");
         LOGGER->log_error("Unknown AdminAccess command: " + String(cmd.c_str()));
+
+        WebSerial.println("Command not found.");
+        print_help();
         return;
     }
 
@@ -72,35 +75,47 @@ void AdminAccess::register_command(std::string cmd, std::function<void(std::stri
     return;
 }
 
+void AdminAccess::print_help() {
+    String commands = "Available commands:\n";
+    for (const auto& pair : handlers) {
+        commands += "- " + String(pair.first.c_str()) + "\n";
+    }
+    WebSerial.println(commands);
+}
+
 void AdminAccess::print_status() {
     char datetime_str[20];
     TimeHandler::localTimeString(datetime_str);
 
     WebSerial.printf("Up since %s\n", datetime_str);
-    WebSerial.printf("- temp: %0.1f F\n", _climate->current_temperature());
-    WebSerial.printf("- humidity: %0.1f%\n", _climate->current_humidity());
-    WebSerial.printf("- fan is: %s\n", _fan->is_on ? "ON" : "OFF");
-    WebSerial.printf("- window is: %s\n", _window->is_open ? "OPEN" : "CLOSED");
-}
+	WebSerial.println("Current Readings:");
+	Serial.println("Current Readings:");
 
-void AdminAccess::print_temp_history() {
-    for (int i = 0; i < 8; i++) {
-        WebSerial.print("history[");
-        WebSerial.print(i);
-        WebSerial.print("] = ");
-        WebSerial.println((float) _climate->historical_temperature(i));
-        WebSerial.flush();
-    }
+	WebSerial.printf("LEAD Sensor: temp: %.2fF, humidity: %.2f%%\n", _sensors->temphumid->current_temperature(), _climate->current_humidity());
+	Serial.printf("LEAD Sensor: temp: %.2fF, humidity: %.2f%%\n", _sensors->temphumid->current_temperature(), _sensors->temphumid->current_humidity());
+
+	_sensors->temp->load_readings();
+	for (auto &sensor : _sensors->temp->sensors) {
+		WebSerial.printf("Sensor [%s]: temp: %.2fC\n", sensor.get_address_string().c_str(), sensor.temp);
+		Serial.printf("Sensor [%s]: temp: %.2fC\n", sensor.get_address_string().c_str(), sensor.temp);
+	}
+
+	_sensors->light->read();
+	WebSerial.printf("Light Sensor: full=%d, ir=%d, visible=%d, lux=%.2f lux\n",
+						_sensors->light->getFullLuminosity(), _sensors->light->getIR(), _sensors->light->getVisible(), _sensors->light->getLux());
+	Serial.printf("Light Sensor: full=%d, ir=%d, visible=%d, lux=%.2f lux\n",
+						_sensors->light->getFullLuminosity(), _sensors->light->getIR(), _sensors->light->getVisible(), _sensors->light->getLux());
+
+    WebSerial.printf("- fan is: %s\n", _controls->fan->is_on() ? "ON" : "OFF");
+    WebSerial.printf("- window is: %s\n", _controls->window->is_open() ? "OPEN" : "CLOSED");
+    WebSerial.printf("- mist is: %s\n", _controls->mist->is_on() ? "ON" : "OFF");
 }
 
 void AdminAccess::print_delta() {
-    WebSerial.print("Rising temp delta (");
-    WebSerial.print(RAPID_RISE_TEMP_MIN);
-    WebSerial.print("min): ");
-    WebSerial.println(_climate->rise_delta());
+    WebSerial.printf("Long period temp delta (%d sec): %0.2f F\n", 
+                     _settings->get_temp_long_delta_s(), _climate->get_long_temp_delta());
 
-    WebSerial.print("Falling temp delta (");
-    WebSerial.print(FALLING_TEMP_MIN);
-    WebSerial.print("min): ");
-    WebSerial.println(_climate->fall_delta());
+    WebSerial.printf("Short period temp delta (%d sec): %0.2f F\n", 
+                     _settings->get_temp_short_delta_s(), _climate->get_short_temp_delta());
+
 }
