@@ -9,14 +9,17 @@
 
 class FanControl {
     private:
-    uint8_t control_pin;
+    uint8_t _control_pin;
+    bool _is_on = false;
 
     public:
-    bool is_on = false;
-
     FanControl(uint8_t pin);
+
     void turn_on();
     void turn_off();
+
+    bool is_on();
+    bool is_off();
 };
 
 #endif
