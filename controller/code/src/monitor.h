@@ -3,6 +3,14 @@
 
 #include "wifi-info.h"
 
+#include "FanControl.h"
+#include "WindowControl.h"
+#include "MistControl.h"
+
+#include "TempHumiditySensor.h"
+#include "TempSensor.h"
+#include "LightSensor.h"
+
 //----------------------------------------------------
 // Defines
 
@@ -10,9 +18,23 @@
 #define HOSTNAME "greenhouse-esp32"
 #endif
 
+#ifndef DEVICE
 #define DEVICE "ESP32"
+#endif
 
 #define SERIAL_SPEED 115200
+
+struct ControlObjects {
+    FanControl *fan;
+    WindowControl *window;
+    MistControl *mist;
+};
+
+struct SensorObjects {
+    TempHumiditySensor *temphumid;
+    SensorHandler *temp;
+    LightSensor *light;
+};
 
 //---- GPIO Pins : Set defaults but defer to the platformio file for specific boards for pin numbers
 
@@ -41,8 +63,6 @@
 #ifndef ONE_WIRE_BUS_PIN
 #define ONE_WIRE_BUS_PIN D8
 #endif
-
-#define ONE_WIRE_SETTLE_MILLIS 500
 
 //---- How to access external settings
 #ifndef SETTINGS_HOST
@@ -83,9 +103,6 @@
 #define LOG_TO_SYSLOG true
 #endif
 
-// Temp we want the greenhouse
-#define TARGET_TEMP_F 70
-
 // Temp above which we always want the windows open
 #define ALWAYS_OPEN_TEMP_F (TARGET_TEMP_F + 15)
 // Temp below witch we always want the windows closed
@@ -98,11 +115,15 @@
 #define COLLECTION_PERIOD_S (1 * 60)
 #define COLLECTION_PERIOD_MS (1000 * COLLECTION_PERIOD_S)
 
+// How often to monitor the state of the system; should be short but not zero
+#define MONITOR_PERIOD_S (1 * 5)
+#define MONITOR_PERIOD_MS (1000 * MONITOR_PERIOD_S)
+
 // Send a heartbeat every 10 minutes to the logger
 #define HEARTBEAT_PERIOD_S (10 * 60)
 #define HEARTBEAT_PERIOD_MS (1000 * HEARTBEAT_PERIOD_S)
 
 // Set a short watchdog timer
-#define WDT_TIMEOUT_S 10
+#define WDT_TIMEOUT_S 15
 
 #endif

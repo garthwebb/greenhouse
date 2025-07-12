@@ -12,9 +12,7 @@
 #include "esp_system.h"
 
 #include <Logger.h>
-#include "FanControl.h"
-#include "WindowControl.h"
-#include "TempHumiditySensor.h"
+
 #include "ClimateControl.h"
 #include "WirelessControl.h"
 #include "AdminAccess.h"
@@ -26,136 +24,33 @@
 //----------------------------------------------------
 // Globals
 
-FanControl *FAN;
-WindowControl *WINDOW;
-TempHumiditySensor *SENSOR;
-ClimateControl *CLIMATE;
-AdminAccess *ADMIN;
-InfluxDBHandler *INFLUX;
-Telemetry *TELEMETRY;
-Logger *LOGGER;
-ExternalSettings *SETTINGS;
+
+struct ControlObjects *CONTROLS = new ControlObjects();
+struct SensorObjects *SENSORS = new SensorObjects();
+
+
+ClimateControl *CLIMATE = nullptr;
+AdminAccess *ADMIN = nullptr;
+InfluxDBHandler *INFLUX = nullptr;
+Telemetry *TELEMETRY = nullptr;
+Logger *LOGGER = nullptr;
+ExternalSettings *SETTINGS = nullptr;
 
 long last_heartbeat_ms = millis();
 
 //----------------------------------------------------
 // Functions
 
-void record_new_reading() {
-    INFLUX->add_reading(SENSOR->current_temperature(), SENSOR->current_humidity());
-}
-
-bool need_fan_on() {
-    // If the fan is already on, don't do anything
-    if (FAN->is_on) {
-        return false;
-    }
-
-    // If the window is not open, don't turn the fan on
-    if (!WINDOW->is_open) {
-        return false;
-    }
-
-    if (SENSOR->current_temperature() >= ALWAYS_FAN_TEMP_F) {
-        INFLUX->annotate_fan_on("absolute", SENSOR->current_temperature());
-        return true;
-    }
-
-    return false;
-}
-
-bool need_fan_off() {
-    // If the fan is already off, don't do anything
-    if (!FAN->is_on) {
-        return false;
-    }
-    
-    if (SENSOR->current_temperature() <= ALWAYS_NO_FAN_TEMP_F) {
-        INFLUX->annotate_fan_off("absolute", SENSOR->current_temperature());
-        return true;
-    }
-
-    return false;
-}
-
-bool need_window_opened() {
-    // Don't continue if window is already open
-    if (WINDOW->is_open) {
-      return false;
-    }
-
-    // Open unconditionally if temp is high enough
-    if (CLIMATE->over_max_temp()) {
-        LOGGER->log_info("Opening window (absolute): " + String(SENSOR->current_temperature()) + "F >= " + String(ALWAYS_OPEN_TEMP_F) + "F");
-        INFLUX->annotate_window_open("absolute", SENSOR->current_temperature());
-        return true;
-    }
-
-    // Open depending on how quickly temp is rising
-    if (CLIMATE->in_rapid_rise()) {
-        LOGGER->log_info("Opening window (rapid rise): " + String(CLIMATE->rise_delta()) + "F > " + String(RAPID_RISE_TEMP_DELTA) + "F");
-        INFLUX->annotate_window_open("conditional", CLIMATE->rise_delta());
-        return true;
-    }
-
-    return false;
-}
-
-bool need_window_closed() {
-    // Don't continue if window is already closed
-    if (!WINDOW->is_open) {
-        return false;
-    }
-
-    // Close unconditionally if temp is low enough
-    if (CLIMATE->under_min_temp()) {
-        LOGGER->log_info("Closing window (absolute): " + String(SENSOR->current_temperature()) + "F < " + String(ALWAYS_CLOSE_TEMP_F) + "F");
-        INFLUX->annotate_window_closed("absolute", SENSOR->current_temperature());
-        return true;
-    }
-
-    // After dropping below a threshold temp, check to see if we've been consistently falling before closing
-    if (CLIMATE->in_rapid_fall()) {
-        LOGGER->log_info("Closing window (conditional): " + String(SENSOR->current_temperature()) + "F < "
-                          + String(DROPPING_TEMP_F) + "F AND temp delta = " + String((double) CLIMATE->fall_delta()));
-
-        INFLUX->annotate_window_closed("conditional", CLIMATE->fall_delta());
-        return true;
-    }
-
-    return false;
-}
-
 void register_admin_commands() {
     ADMIN->register_command("status", []() { ADMIN->print_status(); } );
-    ADMIN->register_command("history", []() { ADMIN->print_temp_history(); } );
     ADMIN->register_command("delta", []() { ADMIN->print_delta(); } );
-    ADMIN->register_command("fan on", []() { FAN->turn_on(); } );
-    ADMIN->register_command("fan off", []() { FAN->turn_off(); } );
-    ADMIN->register_command("open", []() { WINDOW->open(); } );
-    ADMIN->register_command("close", []() { WINDOW->close(); } );
-    ADMIN->register_command("enable logging", []() { INFLUX->enable_logging(); });
-    ADMIN->register_command("disable logging", []() { INFLUX->disable_logging(); });
-}
-
-void handle_fan_control() {
-    if (need_fan_on()) {
-        FAN->turn_on();
-    } else if (need_fan_off()) {
-        FAN->turn_off();
-    }
-}
-
-bool handle_window_control() {
-    if (need_window_opened()) {
-        WINDOW->open();
-        return true;
-    } else if (need_window_closed()) {
-        WINDOW->close();
-        return true;
-    }
-
-    return false;
+    ADMIN->register_command("fan on", []() { CONTROLS->fan->turn_on(); } );
+    ADMIN->register_command("fan off", []() { CONTROLS->fan->turn_off(); } );
+    ADMIN->register_command("open", []() { CONTROLS->window->open(); } );
+    ADMIN->register_command("close", []() { CONTROLS->window->close(); } );
+    ADMIN->register_command("enable logging", []() { CLIMATE->enable_influx_collection(INFLUX); });
+    ADMIN->register_command("disable logging", []() { CLIMATE->disable_influx_collection(); });
+    ADMIN->register_command("help", []() { ADMIN->print_help(); });
 }
 
 void check_for_reset() {
@@ -199,6 +94,13 @@ void check_for_reset() {
     }
 }
 
+uint32_t loop_time_buckets[WDT_TIMEOUT_S];
+void clear_loop_buckets() {
+    for (int i = 0; i < WDT_TIMEOUT_S; i++) {
+        loop_time_buckets[i] = 0;
+    }
+}   
+
 void setup() {
     // Start serial communication
     Serial.begin(SERIAL_SPEED);
@@ -209,25 +111,33 @@ void setup() {
     LOGGER->init(SYSLOG_SERVER, SYSLOG_PORT, HOSTNAME, APP_NAME);
 
     WirelessControl::init_wifi(WIFI_SSID, WIFI_PASSWORD, HOSTNAME);
+    // Give the WiFi time to connect
+    delay(3000); 
 
+    // See if there is a reset reason for the last restart
+    check_for_reset();
 	LOGGER->log("Greenhouse monitor power cycled, starting up ...");
 
     TimeHandler::init_ntp();
 
     SETTINGS = new ExternalSettings(SETTINGS_HOST, SETTINGS_PORT, SETTINGS_PATH);
+    SETTINGS->monitor();
 
-    FAN = new FanControl(FAN_CONTROL_PIN);
-    WINDOW = new WindowControl(WINDOW_OPEN_PIN, WINDOW_CLOSE_PIN);
-    SENSOR = new TempHumiditySensor(DT22_PIN);
-    CLIMATE = new ClimateControl(SENSOR);
-    ADMIN = new AdminAccess(FAN, WINDOW, CLIMATE);
+    CONTROLS->fan = new FanControl(FAN_CONTROL_PIN);
+    CONTROLS->window = new WindowControl(WINDOW_OPEN_PIN, WINDOW_CLOSE_PIN);
+    CONTROLS->mist = new MistControl(MIST_CONTROL_PIN);
+
+    SENSORS->temphumid = new TempHumiditySensor(DT22_PIN);
+    SENSORS->temp = new SensorHandler();
+    SENSORS->light = new LightSensor();
+
+    CLIMATE = new ClimateControl(SETTINGS, SENSORS, CONTROLS);
+    ADMIN = new AdminAccess(SETTINGS, CONTROLS, SENSORS, CLIMATE);
     TELEMETRY = new Telemetry(INFLUXDB_URL, TELEMETRY_DB, HOSTNAME);
-    INFLUX = new InfluxDBHandler(INFLUXDB_URL, INFLUXDB_DB, DEVICE, WIFI_SSID);
 
     if (LOG_TO_INFLUX) {
-        INFLUX->enable_logging();
-    } else {
-        INFLUX->disable_logging();
+        INFLUX = new InfluxDBHandler(INFLUXDB_URL, INFLUXDB_DB, DEVICE);
+        CLIMATE->enable_influx_collection(INFLUX);
     }
 
     if (LOG_TELEMETRY) {
@@ -238,18 +148,21 @@ void setup() {
 
     register_admin_commands();
 
-    // See if there is a reset reason for the last restart
-    check_for_reset();
+    clear_loop_buckets();
 
     // Initialize the Watchdog Timer
     esp_task_wdt_init(WDT_TIMEOUT_S, true);
     // Add the current task to the Watchdog Timer, (the behavior when the task handler == NULL)
     esp_task_wdt_add(NULL);
-  }
+}
 
 // Make sure we start with an immediate reading
-long last_collection_ms = millis() - COLLECTION_PERIOD_MS;
+unsigned long last_collection_ms = millis() - COLLECTION_PERIOD_MS;
+unsigned long last_monitor_ms = millis() - MONITOR_PERIOD_MS;
+
 void loop() {
+    unsigned long loop_start_ms = millis();
+
     // Make sure we still have a wifi connection
     WirelessControl::monitor();
 
@@ -259,28 +172,38 @@ void loop() {
         SETTINGS->monitor();
 
         // Send a new reading to InfluxDB
-        record_new_reading();
+        CLIMATE->report_metrics();
 
-        // Make decisions on fan and window control based on current temperature and humidity
-        CLIMATE->monitor();
-
-        TELEMETRY->report();
+        // Report back the state of our host device
+        TELEMETRY->report_metrics();
 
         last_collection_ms = millis();
     }
 
-    handle_fan_control();
-    handle_window_control();
+    if (millis() >= last_monitor_ms + MONITOR_PERIOD_MS) {
+        // Make decisions on fan and window control based on current temperature and humidity
+        CLIMATE->monitor();
+        last_monitor_ms = millis();
+    }
 
     // While we are between collection periods, check for webserial commands and monitor the window
     ADMIN->handle_commands();
-    WINDOW->monitor();
 
 	if (millis() > last_heartbeat_ms + HEARTBEAT_PERIOD_MS) {
+        String loop_time_buckets_str = "";
+        for (int i = 0; i < WDT_TIMEOUT_S; i++) {
+            loop_time_buckets_str += String(i) + ":" + String(loop_time_buckets[i]) + ", ";
+        }
+        LOGGER->log_debug("Loop time buckets: " + loop_time_buckets_str);
+        clear_loop_buckets();
+
         float temp = temperatureRead();
-		LOGGER->log("Greenhouse monitor running: last colllection=" + String(millis() - last_collection_ms) + "ms)");
+		LOGGER->log("Greenhouse monitor running: last collection=" + String(long(millis() - last_collection_ms)) + "ms");
 		last_heartbeat_ms = millis();
 	}
+
+    int loop_seconds = (millis() - loop_start_ms) / 1000;
+    loop_time_buckets[loop_seconds]++;
 
     esp_task_wdt_reset();
 }
