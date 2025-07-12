@@ -2,21 +2,28 @@
 
 extern Logger *LOGGER;
 
-MistControl::MistControl(uint8_t pin) {
+MistControl::MistControl(uint8_t pin) : _control_pin(pin) {
     LOGGER->log("Initializing MistControl");
-    control_pin = pin;
-    pinMode(control_pin, OUTPUT);
+    pinMode(_control_pin, OUTPUT);
     turn_off();
 }
 
 void MistControl::turn_on() {
-    digitalWrite(control_pin, HIGH);
-    is_on = true;
+    digitalWrite(_control_pin, HIGH);
+    _is_on = true;
     LOGGER->log("Misters turned on");
 }
 
 void MistControl::turn_off() {
-    digitalWrite(control_pin, LOW);
-    is_on = false;
+    digitalWrite(_control_pin, LOW);
+    _is_on = false;
     LOGGER->log("Misters turned off");
+}
+
+bool MistControl::is_on() const {
+    return _is_on;
+}
+
+bool MistControl::is_off() const {
+    return !_is_on;
 }

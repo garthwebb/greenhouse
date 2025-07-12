@@ -7,14 +7,16 @@
 
 class MistControl {
     private:
-    uint8_t control_pin;
+    uint8_t _control_pin;
+    bool _is_on = false;
 
     public:
-    bool is_on = false;
-
     MistControl(uint8_t pin);
     void turn_on();
     void turn_off();
+
+    bool is_on() const;
+    bool is_off() const;
 };
 
 #endif
