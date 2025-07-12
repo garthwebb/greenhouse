@@ -5,10 +5,13 @@
 #include <DallasTemperature.h>
 #include <vector>
 
-#include "monitor.h"
 #include "Logger.h"
 
+#define ONE_WIRE_SETTLE_MILLIS 500
+
 class Sensor {
+    private:
+
     public:
 	float temp;
 	byte address[8];
@@ -17,22 +20,19 @@ class Sensor {
 	String get_address_string() const;
 
 	static String byteArrayToString(const byte address[8]);
-
-    private:
-
 };
 
 class SensorHandler {
+    private:
+	OneWire _one_wire;
+	DallasTemperature _sensor_interface;
+
     public:
 	std::vector<Sensor> sensors;
 
     SensorHandler();
 	void scan();
 	void load_readings();
-
-    private:
-	OneWire _one_wire;
-	DallasTemperature _sensor_interface;
 };
 
 #endif
