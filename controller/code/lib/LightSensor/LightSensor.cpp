@@ -3,6 +3,7 @@
 LightSensor::LightSensor(): _tsl(SENSOR_ID) {
 	if (_tsl.begin()) {
 		Serial.println(F("Found a TSL2591 sensor"));
+		_initialized = true;
 	  } else {
 		Serial.println(F("No sensor found ... check your wiring?"));
 		return;
@@ -16,6 +17,11 @@ LightSensor::LightSensor(): _tsl(SENSOR_ID) {
 }
 
 void LightSensor::displayInfo(void) {
+	if (!_initialized) {
+		Serial.println(F("LightSensor not initialized!"));
+		return;
+	}
+
 	sensor_t sensor;
 	_tsl.getSensor(&sensor);
 	Serial.println(F("------------------------------------"));
@@ -46,7 +52,12 @@ void LightSensor::configure() {
 }
 
 void LightSensor::read() {
-	_lum =  _tsl.getFullLuminosity();
+	if (!_initialized) {
+		Serial.println(F("LightSensor not initialized!"));
+		_lum = 0;
+		return;
+	}
+	_lum = _tsl.getFullLuminosity();
 }
 
 uint32_t LightSensor::getFullLuminosity() {
@@ -63,5 +74,9 @@ uint32_t LightSensor::getVisible() {
 }
 
 float LightSensor::getLux() {
+	if (!_initialized) {
+		Serial.println(F("LightSensor not initialized!"));
+		return 0;
+	}
 	return _tsl.calculateLux(getFullLuminosity(), getIR());
 }

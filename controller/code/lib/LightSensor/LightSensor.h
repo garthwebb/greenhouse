@@ -12,6 +12,7 @@ class LightSensor {
     private:
 	Adafruit_TSL2591 _tsl;
 	uint32_t _lum;
+	bool _initialized = false;
 
     public:
 
