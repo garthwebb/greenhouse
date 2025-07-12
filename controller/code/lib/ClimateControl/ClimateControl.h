@@ -2,52 +2,103 @@
 #define CLIMATECONTROL_H
 
 #include <Arduino.h>
+#include <deque>
 
 #include "Logger.h"
 #include "TempHumiditySensor.h"
+#include "ExternalSettings.h"
 #include "monitor.h"
+#include "InfluxDBHandler.h"
 
-// Temp delta we define as "rapid" and should assume its still going up
-#define RAPID_RISE_TEMP_DELTA 10
-// Time period for the temp delta to be considered "rapid"
-#define RAPID_RISE_TEMP_MIN 30
+// How often to collect temperature data, e.g. once every TEMPERATURE_COLLECTION_PERIOD_S
+#define TEMPERATURE_COLLECTION_PERIOD_S 60
 
-// Temp below which we should close the windows if its been long enough since open
-#define DROPPING_TEMP_F (TARGET_TEMP_F + 5)
-// Time in seconds since last open before we consider closing again
-#define DROPPING_TIME_SINCE_OPEN_S (30 * 60)
-#define DROPPING_TIME_SINCE_OPEN_MS (1000 * DROPPING_TIME_SINCE_OPEN_S)
-// How long in minutes the temp needs to be consistently falling to be considered cooling down
-#define FALLING_TEMP_MIN 120
+class TemperatureWindow {
+public:
+    TemperatureWindow(size_t maxSize);
 
-#define TEMP_HISTORY_DEPTH 400
+	void addIfReady(float temp);
+
+    void addValue(float temp);
+
+    const std::deque<float>& getValues() const;
+
+	float getDeltaOver(uint16_t seconds) const;
+
+private:
+    std::deque<float> data;
+    size_t maxSize;
+	long _last_collection_t = 0;
+};
+
 
 class ClimateControl {
     private:
-	float _temp_history[TEMP_HISTORY_DEPTH];
-	TempHumiditySensor *_sensor;
+	bool _at_temp_rise_limit(float delta);
+	bool _at_temp_fall_limit(float delta);
+
+	TemperatureWindow *_temp_window;
+
+	// Keep track of how long the mist has been on and off
+	long _mist_start_ms = 0;
+	long _mist_end_ms = 0;
+
+	ExternalSettings *_settings;
+	SensorObjects *_sensors;
+	ControlObjects *_controls;
+
+	InfluxDBHandler *_influx = nullptr;
+
+	void _monitor_fan_control();
+	void _monitor_window_control();
+	void _monitor_mist_control();
 
 	// Return the detla between the temp "minutes" minutes ago and now
 	float _temp_delta_over(uint16_t minutes);
 
+	bool _need_fan_on();
+	bool _need_fan_off();
+	bool _need_window_opened();
+	bool _need_window_closed();
+	bool _need_mist_on();
+	bool _need_mist_off();
+
+	bool _is_mist_on_timer_active();
+	bool _is_mist_off_timer_active();
+	void _mist_activate_on_timer();
+	void _mist_activate_off_timer();
+	bool _mist_off_timer_is_clear();
+	bool _mist_on_timer_just_ended();
+
     public:
 
-    ClimateControl(TempHumiditySensor *sensor);
+    ClimateControl(ExternalSettings *settings, SensorObjects *sensors, ControlObjects *controls);
+	void enable_influx_collection(InfluxDBHandler *influx);
+	void disable_influx_collection();
+
+	// Monitor the current temperature and humidity, and make decisions about fan and window control
+	// based on the current temperature and humidity
+
+	void report_metrics();
 	void monitor();
 
     float current_temperature();
     float current_humidity();
 
-	float historical_temperature(uint16_t reading);
+	float get_short_temp_delta();
+	float get_long_temp_delta();
 
-	float rise_delta();
-	float fall_delta();
-
-	bool in_rapid_rise();
-	bool in_rapid_fall();
+	bool at_short_temp_rise_limit();
+	bool at_short_temp_fall_limit();
+	bool at_long_temp_rise_limit();
+	bool at_long_temp_fall_limit();
 
 	bool over_max_temp();
 	bool under_min_temp();
+
+	void start_misting_period();
+	void stop_misting_period();
 };
+
 
 #endif
