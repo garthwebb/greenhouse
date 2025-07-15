@@ -15,7 +15,7 @@ extern Logger *LOGGER;
 
 // TemperatureWindow class implementation
 
-TemperatureWindow::TemperatureWindow(size_t maxSize) : maxSize(maxSize) {}
+TemperatureWindow::TemperatureWindow(size_t maxSize) : _max_size(maxSize) {}
 
 void TemperatureWindow::addIfReady(float temp) {
 	long currentTime = millis();
@@ -26,30 +26,30 @@ void TemperatureWindow::addIfReady(float temp) {
 }
 
 void TemperatureWindow::addValue(float temp) {
-	if (data.size() >= maxSize) {
-		data.pop_front(); // remove oldest
+	if (_data.size() >= _max_size) {
+		_data.pop_front(); // remove oldest
 	}
-	data.push_back(temp); // add newest
+	_data.push_back(temp); // add newest
 }
 
 const std::deque<float>& TemperatureWindow::getValues() const {
-	return data;
+	return _data;
 }
 
 float TemperatureWindow::getDeltaOver(uint16_t seconds) const {
 	int minutes = seconds / 60;
-	if (minutes >= maxSize) {
+	if (minutes >= _max_size) {
 		//LOGGER->log_error("Requested a temp delta over a period longer than the history depth: " + String(minutes));
 		return 0;
 	}
 
-	if (minutes > data.size()) {
+	if (minutes > _data.size()) {
 		//LOGGER->log_error("Not enough data to calculate delta over " + String(minutes) + " minutes");
 		return 0;
 	}
 
-	float start_temp = data[data.size() - 1 - minutes];
-	float current_temp = data.back();
+	float start_temp = _data[_data.size() - minutes];
+	float current_temp = _data.back();
 	return current_temp - start_temp;
 }
 

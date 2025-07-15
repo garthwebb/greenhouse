@@ -111,8 +111,9 @@ void setup() {
     LOGGER->init(SYSLOG_SERVER, SYSLOG_PORT, HOSTNAME, APP_NAME);
 
     WirelessControl::init_wifi(WIFI_SSID, WIFI_PASSWORD, HOSTNAME);
+
     // Give the WiFi time to connect
-    delay(3000); 
+    delay(3000);
 
     // See if there is a reset reason for the last restart
     check_for_reset();
@@ -198,7 +199,7 @@ void loop() {
         clear_loop_buckets();
 
         float temp = temperatureRead();
-		LOGGER->log("Greenhouse monitor running: last collection=" + String(long(millis() - last_collection_ms)) + "ms");
+        LOGGER->log("Greenhouse monitor running: last metrics collection took place " + String(float(millis() - last_collection_ms) / 1000.0f, 2) + "s ago");
 		last_heartbeat_ms = millis();
 	}
 

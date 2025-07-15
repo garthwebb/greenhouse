@@ -26,8 +26,8 @@ public:
 	float getDeltaOver(uint16_t seconds) const;
 
 private:
-    std::deque<float> data;
-    size_t maxSize;
+    std::deque<float> _data;
+    size_t _max_size;
 	long _last_collection_t = 0;
 };
 
