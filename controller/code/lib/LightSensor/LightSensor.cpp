@@ -40,18 +40,18 @@ void LightSensor::displayInfo(void) {
 
 void LightSensor::configure() {
 	// You can change the gain on the fly, to adapt to brighter/dimmer light situations
-	//tsl.setGain(TSL2591_GAIN_LOW);   // 1x gain (bright light)
-	_tsl.setGain(TSL2591_GAIN_MED);    // 25x gain
-	//tsl.setGain(TSL2591_GAIN_HIGH);  // 428x gain
-	
+	_tsl.setGain(TSL2591_GAIN_LOW);   // 1x gain (bright light)
+	//_tsl.setGain(TSL2591_GAIN_MED);    // 25x gain
+	//_tsl.setGain(TSL2591_GAIN_HIGH);  // 428x gain
+
 	// Changing the integration time gives you a longer time over which to sense light
 	// longer timelines are slower, but are good in very low light situtations!
-	//tsl.setTiming(TSL2591_INTEGRATIONTIME_100MS);  // shortest integration time (bright light)
-	// tsl.setTiming(TSL2591_INTEGRATIONTIME_200MS);
-	_tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
-	// tsl.setTiming(TSL2591_INTEGRATIONTIME_400MS);
-	// tsl.setTiming(TSL2591_INTEGRATIONTIME_500MS);
-	// tsl.setTiming(TSL2591_INTEGRATIONTIME_600MS);  // longest integration time (dim light)
+	_tsl.setTiming(TSL2591_INTEGRATIONTIME_100MS);  // shortest integration time (bright light)
+	// _tsl.setTiming(TSL2591_INTEGRATIONTIME_200MS);
+	// _tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
+	// _tsl.setTiming(TSL2591_INTEGRATIONTIME_400MS);
+	// _tsl.setTiming(TSL2591_INTEGRATIONTIME_500MS);
+	// _tsl.setTiming(TSL2591_INTEGRATIONTIME_600MS);  // longest integration time (dim light)
 }
 
 void LightSensor::read() {
