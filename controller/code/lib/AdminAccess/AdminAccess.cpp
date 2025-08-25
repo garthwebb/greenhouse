@@ -16,6 +16,8 @@ AdminAccess::AdminAccess(ExternalSettings *settings, ControlObjects *controls, S
 
     LOGGER->log("AdminAccess available at: http://" + WiFi.localIP().toString() + "/webserial");
     Serial.println("AdminAccess available at: http://" + WiFi.localIP().toString() + "/webserial");
+
+    WebSerial.println("Admin access available");
 }
 
 void AdminAccess::onMessage(uint8_t *data, size_t len) {
@@ -71,7 +73,6 @@ void AdminAccess::register_command(std::string cmd, std::function<void(std::stri
     handlers[cmd] = handler;
     cmd_triggers[cmd] = false;
 
-    WebSerial.println("Admin access available");
     return;
 }
 

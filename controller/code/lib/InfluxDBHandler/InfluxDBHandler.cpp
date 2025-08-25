@@ -35,6 +35,7 @@ bool InfluxDBHandler::write_event_metric(const String &event_type, bool state, c
     Point event("events");
     event.addTag("device", _device);
     event.addTag("reason", reason);
+    event.addTag("type", event_type);
     event.addField(event_type, state);
 
     return _write_metric(&event);
@@ -48,10 +49,10 @@ bool InfluxDBHandler::_write_metric(Point *point) {
     if (!_client->writePoint(*point)) {
         String error_msg = last_error();
         if (error_msg.length() > 0) {
-            LOGGER->log_error("Failed to write metric: " + error_msg);
+            LOGGER->log_error("Failed to write metric {" + point->toLineProtocol() + "}: " + error_msg);
             Serial.println("Failed to write point " + point->toLineProtocol() + ": " + error_msg);
         } else {
-            LOGGER->log_error("Failed to write metric: Unknown InfluxDB error");
+            LOGGER->log_error("Failed to write metric {" + point->toLineProtocol() + "}: Unknown InfluxDB error");
             Serial.println("Failed to write point " + point->toLineProtocol() + ": Unknown InfluxDB error");
         }
         return false;
