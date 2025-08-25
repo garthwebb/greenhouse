@@ -2,9 +2,9 @@
 #define SENSORCONTROL_H
 
 #include <Arduino.h>
-#include <DHT.h>
 
 #include "Logger.h"
+#include <Adafruit_AHTX0.h>
 
 #define DHT_TYPE DHT22
 #define USE_FAHRENHEIT true
@@ -13,31 +13,25 @@
 
 class TempHumiditySensor {
     private:
-    DHT *_sensor;
-    bool _last_humidity_read_valid = false;
-    bool _last_temperature_read_valid = false;
+    Adafruit_AHTX0 _aht;
 
     float _last_temperature = 0;
     float _last_humidity = 0;
+    float _last_pressure = 0;
 
-    bool _temp_read_this_loop = false;
-    bool _humidity_read_this_loop = false;
-    bool _sensor_read_done = false;
+    bool _sensor_read = false;
 
     public:
 
-    TempHumiditySensor(uint8_t pin);
-    static void read_temperature_task(void* param);
-    static void read_humidity_task(void* param);
+    TempHumiditySensor();
 
-    void read_temperature();
-    void read_humidity();
+    void read_sensor();
 
     float current_temperature();
     float current_humidity();
+    float current_pressure();
 
     void clear_cache();
-
 };
 
 #endif
