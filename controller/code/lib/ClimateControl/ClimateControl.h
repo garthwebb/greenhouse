@@ -93,6 +93,9 @@ class ClimateControl {
 	bool at_long_temp_rise_limit();
 	bool at_long_temp_fall_limit();
 
+	bool is_temp_rising();
+	bool is_temp_falling();
+
 	bool over_max_temp();
 	bool under_min_temp();
 

@@ -1,11 +1,11 @@
 #include "ClimateControl.h"
 
 #define REASON_SHORT_RISE "Temp rise exceeds short threshold"
-#define REASON_LONG_RISE "Temp rise exceeds short threshold"
+#define REASON_LONG_RISE "Temp rise exceeds long threshold"
 #define REASON_OVER_MAX_TEMP "Temp exceeds max threshold"
 
 #define REASON_SHORT_FALL "Temp fall exceeds short threshold"
-#define REASON_LONG_FALL "Temp fall exceeds short threshold"
+#define REASON_LONG_FALL "Temp fall exceeds long threshold"
 #define REASON_UNDER_MIN_TEMP "Temp below min threshold"
 
 #define REASON_HUMIDITY_LOW "Humidity below target threshold"
@@ -94,6 +94,9 @@ void ClimateControl::report_metrics() {
 	_influx->write_sensor_metric("light", "ir", _sensors->light->getIR());
 	_influx->write_sensor_metric("light", "visible", _sensors->light->getVisible());
 	_influx->write_sensor_metric("light", "lux", _sensors->light->getLux());
+
+	_influx->write_sensor_metric("long_delta", "temperature", get_long_temp_delta());
+	_influx->write_sensor_metric("short_delta", "temperature", get_short_temp_delta());
 }
 
 void ClimateControl::monitor() {
@@ -239,7 +242,7 @@ bool ClimateControl::_need_fan_on() {
 		return true;
 	}
 
-	if (over_max_temp()) {
+	if (over_max_temp() && is_temp_rising()) {
 		LOGGER->log_info("Turning fan on (absolute): " + String(_sensors->temphumid->current_temperature()) + "F >= " + String(_settings->get_max_temp_f()) + "F");
 		_influx && _influx->event_fan_on(REASON_OVER_MAX_TEMP);
         return true;
@@ -254,14 +257,14 @@ bool ClimateControl::_need_fan_off() {
         return false;
     }
     
-	// If the temp is falling rapidly, or we're under our min temp, turn the fan off
-    if (at_short_temp_fall_limit()) {
-		LOGGER->log_info("Turning fan off (short fall limit): fall of " + String(get_short_temp_delta()) + "F will fall below target in " + String(_settings->get_temp_short_delta_s()) + "s");
-		_influx && _influx->event_fan_off(REASON_SHORT_FALL);
+	// If the temp is falling and will get to target in the "long" period, turn off the fan
+    if (at_long_temp_fall_limit()) {
+		LOGGER->log_info("Turning fan off (long fall limit): fall of " + String(get_long_temp_delta()) + "F will fall below target in " + String(_settings->get_temp_long_delta_s()) + "s");
+		_influx && _influx->event_fan_off(REASON_LONG_FALL);
 		return true;
 	}
 
-	if (under_min_temp()) {
+	if (under_min_temp() && is_temp_falling()) {
 		LOGGER->log_info("Turning fan off (absolute): " + String(_sensors->temphumid->current_temperature()) + "F <= " + String(_settings->get_min_temp_f()) + "F");
 		_influx && _influx->event_fan_off(REASON_UNDER_MIN_TEMP);
         return true;
@@ -283,7 +286,7 @@ bool ClimateControl::_need_window_opened() {
 		return true;
 	}
 
-	if (over_max_temp()) {
+	if (over_max_temp() && is_temp_rising()) {
         LOGGER->log_info("Opening window (absolute): " + String(_sensors->temphumid->current_temperature()) + "F >= " + String(_settings->get_max_temp_f()) + "F");
 		_influx && _influx->event_window_open(REASON_OVER_MAX_TEMP);
         return true;
@@ -298,15 +301,15 @@ bool ClimateControl::_need_window_closed() {
         return false;
     }
 
-    // Close unconditionally if temp is low enough
-    if (at_long_temp_fall_limit()) {
-		LOGGER->log_info("Closing window (long fall limit): " + String(get_long_temp_delta()) + "F will fall below target in " + String(_settings->get_temp_long_delta_s()) + "s");
-		_influx && _influx->event_window_closed(REASON_LONG_FALL);
+    // If we're going to fall below the limit "soon", close the windows
+    if (at_short_temp_fall_limit()) {
+		LOGGER->log_info("Closing window (short fall limit): " + String(get_short_temp_delta()) + "F will fall below target in " + String(_settings->get_temp_short_delta_s()) + "s");
+		_influx && _influx->event_window_closed(REASON_SHORT_FALL);
         return true;
     }
 
     // After dropping below a threshold temp, check to see if we've been consistently falling before closing
-    if (under_min_temp()) {
+    if (under_min_temp() && is_temp_falling()) {
 		LOGGER->log_info("Closing window (absolute): " + String(_sensors->temphumid->current_temperature()) + "F <= " + String(_settings->get_min_temp_f()) + "F");
 		_influx && _influx->event_window_closed(REASON_UNDER_MIN_TEMP);
         return true;
@@ -337,6 +340,14 @@ bool ClimateControl::at_short_temp_rise_limit() {
 
 bool ClimateControl::at_long_temp_rise_limit() {
 	return _at_temp_rise_limit(get_long_temp_delta());
+}
+
+bool ClimateControl::is_temp_rising() {
+	return get_short_temp_delta() > 0;
+}
+
+bool ClimateControl::is_temp_falling() {
+	return get_short_temp_delta() < 0;
 }
 
 bool ClimateControl::_at_temp_rise_limit(float delta) {
