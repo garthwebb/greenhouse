@@ -28,15 +28,12 @@
 struct ControlObjects *CONTROLS = new ControlObjects();
 struct SensorObjects *SENSORS = new SensorObjects();
 
-
 ClimateControl *CLIMATE = nullptr;
 AdminAccess *ADMIN = nullptr;
 InfluxDBHandler *INFLUX = nullptr;
 Telemetry *TELEMETRY = nullptr;
 Logger *LOGGER = nullptr;
 ExternalSettings *SETTINGS = nullptr;
-
-long last_heartbeat_ms = millis();
 
 //----------------------------------------------------
 // Functions
@@ -94,13 +91,6 @@ void check_for_reset() {
     }
 }
 
-uint32_t loop_time_buckets[WDT_TIMEOUT_S];
-void clear_loop_buckets() {
-    for (int i = 0; i < WDT_TIMEOUT_S; i++) {
-        loop_time_buckets[i] = 0;
-    }
-}   
-
 void setup() {
     // Start serial communication
     Serial.begin(SERIAL_SPEED);
@@ -128,7 +118,7 @@ void setup() {
     CONTROLS->window = new WindowControl(WINDOW_OPEN_PIN, WINDOW_CLOSE_PIN);
     CONTROLS->mist = new MistControl(MIST_CONTROL_PIN);
 
-    SENSORS->temphumid = new TempHumiditySensor(DT22_PIN);
+    SENSORS->temphumid = new TempHumiditySensor();
     SENSORS->temp = new SensorHandler();
     SENSORS->light = new LightSensor();
 
@@ -149,21 +139,21 @@ void setup() {
 
     register_admin_commands();
 
-    clear_loop_buckets();
-
     // Initialize the Watchdog Timer
     esp_task_wdt_init(WDT_TIMEOUT_S, true);
     // Add the current task to the Watchdog Timer, (the behavior when the task handler == NULL)
     esp_task_wdt_add(NULL);
+
+    WebSerial.println("===================== GREENHOUSE MONITOR STARTED =====================");
 }
 
 // Make sure we start with an immediate reading
+
+unsigned long last_heartbeat_ms = millis() - HEARTBEAT_PERIOD_MS;
 unsigned long last_collection_ms = millis() - COLLECTION_PERIOD_MS;
 unsigned long last_monitor_ms = millis() - MONITOR_PERIOD_MS;
 
 void loop() {
-    unsigned long loop_start_ms = millis();
-
     // Make sure we still have a wifi connection
     WirelessControl::monitor();
 
@@ -191,20 +181,12 @@ void loop() {
     ADMIN->handle_commands();
 
 	if (millis() > last_heartbeat_ms + HEARTBEAT_PERIOD_MS) {
-        String loop_time_buckets_str = "";
-        for (int i = 0; i < WDT_TIMEOUT_S; i++) {
-            loop_time_buckets_str += String(i) + ":" + String(loop_time_buckets[i]) + ", ";
-        }
-        LOGGER->log_debug("Loop time buckets: " + loop_time_buckets_str);
-        clear_loop_buckets();
-
         float temp = temperatureRead();
         LOGGER->log("Greenhouse monitor running: last metrics collection took place " + String(float(millis() - last_collection_ms) / 1000.0f, 2) + "s ago");
 		last_heartbeat_ms = millis();
 	}
 
-    int loop_seconds = (millis() - loop_start_ms) / 1000;
-    loop_time_buckets[loop_seconds]++;
-
+    // Not great.  Clear the per loop cache, in case we happened to have read a value this time through
+    SENSORS->temphumid->clear_cache();
     esp_task_wdt_reset();
 }

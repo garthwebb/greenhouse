@@ -119,11 +119,11 @@ struct SensorObjects {
 #define MONITOR_PERIOD_S (1 * 5)
 #define MONITOR_PERIOD_MS (1000 * MONITOR_PERIOD_S)
 
-// Send a heartbeat every 10 minutes to the logger
-#define HEARTBEAT_PERIOD_S (10 * 60)
+// Send a heartbeat every 60 minutes to the logger
+#define HEARTBEAT_PERIOD_S (60 * 60)
 #define HEARTBEAT_PERIOD_MS (1000 * HEARTBEAT_PERIOD_S)
 
 // Set a short watchdog timer
-#define WDT_TIMEOUT_S 15
+#define WDT_TIMEOUT_S 120
 
 #endif
