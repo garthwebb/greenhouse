@@ -8,6 +8,7 @@
 #include <time.h>
 #include <string>
 #include <WebSerial.h>
+#include <ArduinoOTA.h>
 #include <esp_task_wdt.h>
 #include "esp_system.h"
 
@@ -35,12 +36,59 @@ Telemetry *TELEMETRY = nullptr;
 Logger *LOGGER = nullptr;
 ExternalSettings *SETTINGS = nullptr;
 
+bool ota_listener_enabled = OTA_LISTENER_ENABLED_BY_DEFAULT;
+bool ota_in_progress = false;
+unsigned long ota_start_ms = 0;
+int ota_last_progress_pct = -1;
+
+String ota_status_message() {
+    if (!ota_listener_enabled) {
+        return "disabled";
+    }
+
+    if (!WirelessControl::is_connected) {
+        return "enabled, waiting for wifi";
+    }
+
+    if (ota_in_progress) {
+        return "in progress";
+    }
+
+    return "enabled, idle";
+}
+
 //----------------------------------------------------
 // Functions
 
 void register_admin_commands() {
     ADMIN->register_command("status", []() { ADMIN->print_status(); } );
     ADMIN->register_command("delta", []() { ADMIN->print_delta(); } );
+    ADMIN->register_command("ota status", []() {
+        String status = ota_status_message();
+        WebSerial.println("OTA status: " + status);
+        Serial.println("OTA status: " + status);
+    });
+    ADMIN->register_command("ota enable", []() {
+        ota_listener_enabled = true;
+        WebSerial.println("OTA listener enabled");
+        LOGGER->log("OTA listener enabled");
+    });
+    ADMIN->register_command("ota start", []() {
+        ota_listener_enabled = true;
+        WebSerial.println("OTA listener enabled: push update with PlatformIO espota now");
+        LOGGER->log("OTA listener enabled via ota start command");
+    });
+    ADMIN->register_command("ota disable", []() {
+        if (ota_in_progress) {
+            WebSerial.println("OTA disable rejected: update already in progress");
+            LOGGER->log_error("OTA disable rejected: update already in progress");
+            return;
+        }
+
+        ota_listener_enabled = false;
+        WebSerial.println("OTA listener disabled");
+        LOGGER->log("OTA listener disabled");
+    });
     ADMIN->register_command("fan on", []() { CONTROLS->fan->turn_on(); } );
     ADMIN->register_command("fan off", []() { CONTROLS->fan->turn_off(); } );
     ADMIN->register_command("open", []() { CONTROLS->window->open(); } );
@@ -48,6 +96,56 @@ void register_admin_commands() {
     ADMIN->register_command("enable logging", []() { CLIMATE->enable_influx_collection(INFLUX); });
     ADMIN->register_command("disable logging", []() { CLIMATE->disable_influx_collection(); });
     ADMIN->register_command("help", []() { ADMIN->print_help(); });
+}
+
+void setup_ota() {
+#if ENABLE_OTA_UPDATE
+    ArduinoOTA.setHostname(HOSTNAME);
+    ArduinoOTA.setPort(OTA_PORT);
+
+    if (String(OTA_PASSWORD).length() > 0) {
+        ArduinoOTA.setPassword(OTA_PASSWORD);
+    }
+
+    ArduinoOTA.onStart([]() {
+        if (ota_in_progress) {
+            LOGGER->log_error("OTA start ignored: update already in progress");
+            return;
+        }
+
+        ota_in_progress = true;
+        ota_start_ms = millis();
+        ota_last_progress_pct = -1;
+        LOGGER->log("OTA update started");
+        Serial.println("OTA update started");
+    });
+
+    ArduinoOTA.onEnd([]() {
+        ota_in_progress = false;
+        LOGGER->log("OTA update completed in " + String((millis() - ota_start_ms) / 1000.0f, 2) + "s");
+        Serial.println("OTA update completed");
+    });
+
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        int progress_pct = (progress * 100U) / total;
+        if (progress_pct != ota_last_progress_pct && (progress_pct % 10 == 0 || progress_pct == 100)) {
+            ota_last_progress_pct = progress_pct;
+            LOGGER->log("OTA update progress: " + String(progress_pct) + "%");
+        }
+
+        // Feed watchdog during transfer to avoid WDT reset on slower uploads.
+        esp_task_wdt_reset();
+    });
+
+    ArduinoOTA.onError([](ota_error_t error) {
+        ota_in_progress = false;
+        LOGGER->log_error("OTA update failed with error code: " + String(static_cast<int>(error)));
+        Serial.printf("OTA error [%u]\n", error);
+    });
+
+    ArduinoOTA.begin();
+    LOGGER->log("OTA service initialized on port " + String(OTA_PORT));
+#endif
 }
 
 void check_for_reset() {
@@ -95,7 +193,7 @@ void setup() {
     // Start serial communication
     Serial.begin(SERIAL_SPEED);
 
-	// Initialize the logger so WirelessControl can use it, but LOGGER should not be used
+    // Initialize the logger so WirelessControl can use it, but LOGGER should not be used
 	// until after the init_wifi() returns
     LOGGER = new Logger();
     LOGGER->init(SYSLOG_SERVER, SYSLOG_PORT, HOSTNAME, APP_NAME);
@@ -137,6 +235,14 @@ void setup() {
         TELEMETRY->disable();
     }
 
+    setup_ota();
+
+    if (ota_listener_enabled) {
+        LOGGER->log("OTA listener starts enabled");
+    } else {
+        LOGGER->log("OTA listener starts disabled (manual enable required)");
+    }
+
     register_admin_commands();
 
     // Initialize the Watchdog Timer
@@ -156,6 +262,21 @@ unsigned long last_monitor_ms = millis() - MONITOR_PERIOD_MS;
 void loop() {
     // Make sure we still have a wifi connection
     WirelessControl::monitor();
+
+#if ENABLE_OTA_UPDATE
+    // Handle OTA only when command-enabled and WiFi is healthy.
+    if (ota_listener_enabled && WirelessControl::is_connected) {
+        ArduinoOTA.handle();
+    }
+#endif
+
+    // Keep runtime responsive and watchdog-safe while OTA is active.
+    if (ota_in_progress) {
+        ADMIN->handle_commands();
+        SENSORS->temphumid->clear_cache();
+        esp_task_wdt_reset();
+        return;
+    }
 
     // Determine when we're done waiting
     if (millis() >= last_collection_ms + COLLECTION_PERIOD_MS) {
