@@ -103,6 +103,26 @@ struct SensorObjects {
 #define LOG_TO_SYSLOG true
 #endif
 
+// Enable/disable Arduino OTA support in firmware.
+#ifndef ENABLE_OTA_UPDATE
+#define ENABLE_OTA_UPDATE true
+#endif
+
+// OTA listener is command-gated and disabled by default.
+#ifndef OTA_LISTENER_ENABLED_BY_DEFAULT
+#define OTA_LISTENER_ENABLED_BY_DEFAULT false
+#endif
+
+// OTA listener port used by ArduinoOTA.
+#ifndef OTA_PORT
+#define OTA_PORT 3232
+#endif
+
+// Optional OTA password used by PlatformIO espota uploads.
+#ifndef OTA_PASSWORD
+#define OTA_PASSWORD ""
+#endif
+
 // Temp above which we always want the windows open
 #define ALWAYS_OPEN_TEMP_F (TARGET_TEMP_F + 15)
 // Temp below witch we always want the windows closed
