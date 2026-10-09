@@ -49,6 +49,21 @@ class ClimateControl {
 
 	InfluxDBHandler *_influx = nullptr;
 
+	// Humidity venting state
+	bool _humidity_high = false;
+	unsigned long _humidity_high_since_ms = 0;
+	bool _venting = false;
+	unsigned long _vent_start_ms = 0;
+	bool _has_vented = false;
+	unsigned long _vent_end_ms = 0;
+	bool _vent_opened_window = false;
+	bool _vent_turned_on_fan = false;
+
+	// Returns true while a humidity vent is in progress, i.e. temperature rules for the fan & window should be skipped
+	bool _monitor_humidity_vent();
+	void _start_humidity_vent();
+	void _end_humidity_vent(const char *reason);
+
 	void _monitor_fan_control();
 	void _monitor_window_control();
 	void _monitor_mist_control();

@@ -11,6 +11,7 @@ class FanControl {
     private:
     uint8_t _control_pin;
     bool _is_on = false;
+    unsigned long _last_change_ms = 0;
 
     public:
     FanControl(uint8_t pin);
@@ -20,6 +21,8 @@ class FanControl {
 
     bool is_on();
     bool is_off();
+
+    unsigned long millis_since_change();
 };
 
 #endif
