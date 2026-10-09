@@ -42,6 +42,7 @@ void WindowControl::open() {
 
     digitalWrite(_control_pin_open, HIGH);
     move_start_ms = millis();
+    last_move_ms = millis();
     _is_moving = true;
 
     _is_open = true;
@@ -56,11 +57,16 @@ void WindowControl::close() {
 
     digitalWrite(_control_pin_close, HIGH);
     move_start_ms = millis();
+    last_move_ms = millis();
     _is_moving = true;
 
     _is_open = false;
 
     LOGGER->log("Window close started");
+}
+
+unsigned long WindowControl::millis_since_move() {
+    return millis() - last_move_ms;
 }
 
 bool WindowControl::is_open() {

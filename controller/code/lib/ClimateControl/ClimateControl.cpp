@@ -11,6 +11,10 @@
 #define REASON_HUMIDITY_LOW "Humidity below target threshold"
 #define REASON_HUMITIDY_OFF_PERIOD "Pausing after misting period"
 
+#define REASON_HUMIDITY_HIGH "Humidity above vent threshold"
+#define REASON_HUMIDITY_VENT_DONE "Humidity vent period ended"
+#define REASON_HUMIDITY_VENT_COLD "Humidity vent stopped, temp below min threshold"
+
 extern Logger *LOGGER;
 
 // TemperatureWindow class implementation
@@ -103,9 +107,12 @@ void ClimateControl::monitor() {
 	// Add a new temperature reading, if its time
 	_temp_window->addIfReady(_sensors->temphumid->current_temperature());
 
-	// See if we need to toggle any of the controls
-	_monitor_fan_control();
-	_monitor_window_control();
+	// See if we need to toggle any of the controls.  A humidity vent takes priority over the temperature
+	// rules for the fan and window while it runs.
+	if (!_monitor_humidity_vent()) {
+		_monitor_fan_control();
+		_monitor_window_control();
+	}
 	_monitor_mist_control();
 
 	// Periodically check on the window.  It takes some time to move and we don't get any feedback
@@ -184,17 +191,119 @@ bool ClimateControl::_is_mist_off_timer_active() {
 	return  millis() < _mist_end_ms + _settings->get_mist_off_ms();
 }
 
+bool ClimateControl::_monitor_humidity_vent() {
+	unsigned long now = millis();
+
+	if (_venting) {
+		// Stop early if venting is letting the greenhouse get too cold
+		if (under_min_temp()) {
+			_end_humidity_vent(REASON_HUMIDITY_VENT_COLD);
+			return false;
+		}
+
+		if (now - _vent_start_ms < _settings->get_humidity_vent_on_ms()) {
+			return true;
+		}
+
+		_end_humidity_vent(REASON_HUMIDITY_VENT_DONE);
+		return false;
+	}
+
+	// Track how long the humidity has been continuously above the vent threshold
+	float humidity = current_humidity();
+	if (isnan(humidity) || humidity <= _settings->get_humidity_vent_max()) {
+		_humidity_high = false;
+		return false;
+	}
+
+	if (!_humidity_high) {
+		_humidity_high = true;
+		_humidity_high_since_ms = now;
+		return false;
+	}
+
+	if (now - _humidity_high_since_ms < _settings->get_humidity_vent_trigger_ms()) {
+		return false;
+	}
+
+	// Give the last vent time to have an effect before trying again
+	if (_has_vented && now - _vent_end_ms < _settings->get_humidity_vent_off_ms()) {
+		return false;
+	}
+
+	// Don't let cold air in to fix humidity
+	if (under_min_temp()) {
+		return false;
+	}
+
+	_start_humidity_vent();
+	return true;
+}
+
+void ClimateControl::_start_humidity_vent() {
+	LOGGER->log_info("Starting humidity vent: " + String(current_humidity()) + "% > " + String(_settings->get_humidity_vent_max()) + "% for " + String(_settings->get_humidity_vent_trigger_ms() / 1000) + "s");
+
+	_venting = true;
+	_vent_start_ms = millis();
+
+	// Only remember what we changed, so that ending the vent doesn't undo a temperature rule's decision
+	_vent_opened_window = _controls->window->is_closed();
+	if (_vent_opened_window) {
+		_influx && _influx->event_window_open(REASON_HUMIDITY_HIGH);
+		_controls->window->open();
+	}
+
+	_vent_turned_on_fan = _controls->fan->is_off();
+	if (_vent_turned_on_fan) {
+		_influx && _influx->event_fan_on(REASON_HUMIDITY_HIGH);
+		_controls->fan->turn_on();
+	}
+}
+
+void ClimateControl::_end_humidity_vent(const char *reason) {
+	LOGGER->log_info(String("Ending humidity vent: ") + reason + ", humidity now " + String(current_humidity()) + "%");
+
+	_venting = false;
+	_has_vented = true;
+	_vent_end_ms = millis();
+	_humidity_high = false;
+
+	if (_vent_turned_on_fan && _controls->fan->is_on()) {
+		_influx && _influx->event_fan_off(reason);
+		_controls->fan->turn_off();
+	}
+
+	if (_vent_opened_window && _controls->window->is_open()) {
+		_influx && _influx->event_window_closed(reason);
+		_controls->window->close();
+	}
+
+	_vent_opened_window = false;
+	_vent_turned_on_fan = false;
+}
+
 void ClimateControl::_monitor_fan_control() {
+	// Don't reverse the fan until it has been in its current state for a while, otherwise the
+	// short and long delta rules can disagree and toggle it every monitor cycle
+	if (_controls->fan->millis_since_change() < _settings->get_min_dwell_ms()) {
+		return;
+	}
+
     if (_need_fan_on()) {
         _controls->fan->turn_on();
-	} else if (_controls->fan->is_on() && _need_fan_off()) {
-		_controls->fan->turn_off();
     } else if (_need_fan_off()) {
         _controls->fan->turn_off();
     }
 }
 
 void ClimateControl::_monitor_window_control() {
+	// Don't reverse the window until it has been in its current position for a while.  The open rule
+	// uses the long delta and the close rule uses the short delta, so when the temp is near the target
+	// with a long-term rise but a short-term dip, both are true and the window would flip every cycle.
+	if (_controls->window->millis_since_move() < _settings->get_min_dwell_ms()) {
+		return;
+	}
+
     if (_need_window_opened()) {
         _controls->window->open();
     } else if (_need_window_closed()) {

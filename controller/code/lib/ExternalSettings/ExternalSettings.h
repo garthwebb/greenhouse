@@ -21,6 +21,15 @@
 #define DEFAULT_MIST_ON_S 30
 #define DEFAULT_MIST_OFF_S 2*60
 
+// Minimum time the window or fan must stay in a state before temperature rules may reverse it
+#define DEFAULT_MIN_DWELL_S 10*60
+
+// Vent (open window + fan) when humidity stays above the max for the trigger period
+#define DEFAULT_HUMIDITY_VENT_MAX 80.0
+#define DEFAULT_HUMIDITY_VENT_TRIGGER_S 20*60
+#define DEFAULT_HUMIDITY_VENT_ON_S 10*60
+#define DEFAULT_HUMIDITY_VENT_OFF_S 30*60
+
 class ExternalSettings {
     private:
 	String _last_modified = "";
@@ -92,6 +101,26 @@ class ExternalSettings {
 
 	int get_mist_off_ms() {
 		return get_mist_off_s() * 1000;
+	}
+
+	unsigned long get_min_dwell_ms() {
+		return get<int>("min_dwell_s", DEFAULT_MIN_DWELL_S) * 1000UL;
+	}
+
+	float get_humidity_vent_max() {
+		return get<float>("humidity_vent_max", DEFAULT_HUMIDITY_VENT_MAX);
+	}
+
+	unsigned long get_humidity_vent_trigger_ms() {
+		return get<int>("humidity_vent_trigger_s", DEFAULT_HUMIDITY_VENT_TRIGGER_S) * 1000UL;
+	}
+
+	unsigned long get_humidity_vent_on_ms() {
+		return get<int>("humidity_vent_on_s", DEFAULT_HUMIDITY_VENT_ON_S) * 1000UL;
+	}
+
+	unsigned long get_humidity_vent_off_ms() {
+		return get<int>("humidity_vent_off_s", DEFAULT_HUMIDITY_VENT_OFF_S) * 1000UL;
 	}
 };
 
