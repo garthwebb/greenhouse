@@ -924,30 +924,6 @@
 		(layer "User.3")
 		(uuid "191e5813-86b3-47fe-b564-71a1c324b037")
 	)
-	(gr_text "3V3"
-		(at 145.45 78.328685 0)
-		(layer "B.SilkS")
-		(uuid "bd877b99-fc05-422c-938e-37fe171e10fc")
-		(effects
-			(font
-				(size 1 1)
-				(thickness 0.1)
-			)
-			(justify left bottom mirror)
-		)
-	)
-	(gr_text "GND"
-		(at 152.45 78.328685 0)
-		(layer "B.SilkS")
-		(uuid "7685032c-eac9-4d02-9d22-25d4bfbad739")
-		(effects
-			(font
-				(size 1 1)
-				(thickness 0.1)
-			)
-			(justify left bottom mirror)
-		)
-	)
 	(gr_text "TH Sensor Board"
 		(at 156.52 74.55 0)
 		(layer "B.SilkS")
@@ -972,8 +948,32 @@
 			(justify left bottom mirror)
 		)
 	)
+	(gr_text "GND"
+		(at 145.9 78.6 90)
+		(layer "B.SilkS")
+		(uuid "7685032c-eac9-4d02-9d22-25d4bfbad739")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom mirror)
+		)
+	)
+	(gr_text "3V3"
+		(at 147.3 78.6 90)
+		(layer "B.SilkS")
+		(uuid "bd877b99-fc05-422c-938e-37fe171e10fc")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom mirror)
+		)
+	)
 	(gr_text "SDA"
-		(at 147.3 78.578685 90)
+		(at 148.7 78.6 90)
 		(layer "B.SilkS")
 		(uuid "03ae70b6-3d1e-4a83-af76-1619f1947565")
 		(effects
@@ -985,7 +985,7 @@
 		)
 	)
 	(gr_text "SCL"
-		(at 148.6 78.578685 90)
+		(at 150.1 78.6 90)
 		(layer "B.SilkS")
 		(uuid "274cef22-6192-429c-ae4a-d749f7a02504")
 		(effects
@@ -1251,13 +1251,6 @@
 		(layer "F.Cu")
 		(net "/SCL")
 		(uuid "5aa20719-6042-4eeb-bbd3-40c5ec0f11d7")
-	)
-	(group ""
-		(uuid "6cfdaa22-0c81-45ad-8920-3f6c00cafb7b")
-		(members "03ae70b6-3d1e-4a83-af76-1619f1947565" "16662486-1838-40ab-96dc-b38a56164a0b"
-			"274cef22-6192-429c-ae4a-d749f7a02504" "7685032c-eac9-4d02-9d22-25d4bfbad739"
-			"bd877b99-fc05-422c-938e-37fe171e10fc"
-		)
 	)
 	(embedded_fonts no)
 )
