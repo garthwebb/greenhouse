@@ -19,6 +19,7 @@ class WindowControl {
     public:
     long move_start_ms = 0;
     long last_open_time_ms = 0;
+    unsigned long last_move_ms = 0;
 
 
     WindowControl(uint8_t open_pin, uint8_t close_pin);
@@ -27,6 +28,7 @@ class WindowControl {
     void monitor();
     long millis_since_open();
     long seconds_since_open();
+    unsigned long millis_since_move();
 
     bool is_open();
     bool is_closed();

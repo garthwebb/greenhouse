@@ -60,6 +60,23 @@ String ota_status_message() {
 //----------------------------------------------------
 // Functions
 
+void print_remote_sensors() {
+    WebSerial.printf("MQTT: %s\n", SENSORS->remote->is_connected() ? "connected" : "disconnected");
+
+    if (SENSORS->remote->readings().empty()) {
+        WebSerial.println("No remote sensors seen yet");
+        return;
+    }
+
+    for (const auto &pair : SENSORS->remote->readings()) {
+        const RemoteReading &reading = pair.second;
+        WebSerial.printf("Remote [%s]: temp: %.2fF, humidity: %.2f%%, battery: %.3fV %.0f%%, rssi: %d, missed: %u, age: %lds%s%s\n",
+            pair.first.c_str(), reading.temperature, reading.humidity, reading.battery_v, reading.battery_pct,
+            reading.rssi, reading.missed, SENSORS->remote->age_s(reading),
+            reading.low_battery ? " (LOW BATTERY)" : "", SENSORS->remote->is_fresh(reading) ? "" : " (STALE)");
+    }
+}
+
 void register_admin_commands() {
     ADMIN->register_command("status", []() { ADMIN->print_status(); } );
     ADMIN->register_command("delta", []() { ADMIN->print_delta(); } );
@@ -95,6 +112,7 @@ void register_admin_commands() {
     ADMIN->register_command("close", []() { CONTROLS->window->close(); } );
     ADMIN->register_command("enable logging", []() { CLIMATE->enable_influx_collection(INFLUX); });
     ADMIN->register_command("disable logging", []() { CLIMATE->disable_influx_collection(); });
+    ADMIN->register_command("remote", []() { print_remote_sensors(); });
     ADMIN->register_command("help", []() { ADMIN->print_help(); });
 }
 
@@ -219,6 +237,7 @@ void setup() {
     SENSORS->temphumid = new TempHumiditySensor();
     SENSORS->temp = new SensorHandler();
     SENSORS->light = new LightSensor();
+    SENSORS->remote = new RemoteSensors(MQTT_HOST, MQTT_PORT, HOSTNAME);
 
     CLIMATE = new ClimateControl(SETTINGS, SENSORS, CONTROLS);
     ADMIN = new AdminAccess(SETTINGS, CONTROLS, SENSORS, CLIMATE);
@@ -277,6 +296,9 @@ void loop() {
         esp_task_wdt_reset();
         return;
     }
+
+    // Pick up any new readings from the battery powered remote sensors
+    SENSORS->remote->monitor();
 
     // Determine when we're done waiting
     if (millis() >= last_collection_ms + COLLECTION_PERIOD_MS) {

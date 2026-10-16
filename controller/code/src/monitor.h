@@ -10,6 +10,7 @@
 #include "TempHumiditySensor.h"
 #include "TempSensor.h"
 #include "LightSensor.h"
+#include "RemoteSensors.h"
 
 //----------------------------------------------------
 // Defines
@@ -34,6 +35,7 @@ struct SensorObjects {
     TempHumiditySensor *temphumid;
     SensorHandler *temp;
     LightSensor *light;
+    RemoteSensors *remote;
 };
 
 //---- GPIO Pins : Set defaults but defer to the platformio file for specific boards for pin numbers
@@ -87,6 +89,14 @@ struct SensorObjects {
 #define INFLUXDB_URL "http://192.168.3.88:8086"
 #define INFLUXDB_DB "greenhouse"
 #define TELEMETRY_DB "telemetry"
+
+//-- MQTT broker for the battery powered remote sensors
+#ifndef MQTT_HOST
+#define MQTT_HOST "192.168.3.88"
+#endif
+#ifndef MQTT_PORT
+#define MQTT_PORT 1883
+#endif
 
 // Quickly enable/disable infux logging.  Can be controlled via platformio.ini
 #ifndef LOG_TO_INFLUX

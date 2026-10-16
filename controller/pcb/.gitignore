@@ -3,3 +3,5 @@ fp-info-cache
 *.lck
 _autosave*
 \#auto*
+# KiCad local history; its own git repository
+.history/
