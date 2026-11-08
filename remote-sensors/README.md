@@ -30,31 +30,68 @@ All three use a Seeed XIAO ESP32-C3.
 | D7 (RX) | D6 (TX) |
 | GND | GND |
 
-**Sensor node:**
+**Sensor node:** two boards joined by a Qwiic cable. The sensor board sits in the radiation shield, and the driver board, with the battery, sits in the sealed pod below it. KiCad projects are in `pcb/sensor-board` and `pcb/sensor-driver`.
 
 ```
-CR123A + ──┬──────────────▶ boost converter IN      boost OUT (3.3V) ──▶ XIAO 3V3
-           │                                        boost GND ─────────▶ XIAO GND
-          100k
-           ├──────────────▶ XIAO A1
-          100k   10nF A1 to GND
-           │
-         drain
-  XIAO D2 ──▶ gate   2N7002 (or similar logic-level N-MOSFET)
-          100k gate to GND
-         source
-           │
-CR123A − ──┴──── GND
+CR123A + ──▶ XP2P038N ──┬──▶ TPS63900 IN      TPS63900 OUT (3.3V) ──▶ XIAO 3V3
+             (reverse   │                     TPS63900 GND ─────────▶ XIAO GND
+            protection) 100k
+                        ├──────────────▶ XIAO A1
+                       100k   10nF A1 to GND
+                        │
+                      drain
+           XIAO D2 ──▶ gate   2N7002K
+                     100k gate to GND
+                      source
+                        │
+CR123A − ───────────────┴──── GND
 ```
 
-- **Sensor:** SHT45 on SDA (D4) / SCL (D5), with a 100nF cap across its supply.
-- **Power:** a 3.3V boost converter with a low idle current, such as one built on a TPS61099 (about 1µA). A CR123A sits around 2.8–3.0V under load, below the ESP32-C3's 3.0V minimum, so it can't run the XIAO directly.
+- **Sensor board (15 × 15 mm):** SHT41I-AD1B with a 100nF cap across its supply, and a side-entry JST-SH header (SM04B-SRSS-TB) on its bottom edge.
+- **Qwiic link:** SDA (D4) / SCL (D5) with 4.7k pull-ups on the driver board. Pinout: 1 GND, 2 3.3V, 3 SDA, 4 SCL.
+- **Power:** a TPS63900 buck-boost converter (75nA idle) makes 3.3V from the CR123A. A CR123A sits around 2.8–3.0V under load, below the ESP32-C3's 3.0V minimum, so it can't run the XIAO directly.
   - Feed the XIAO through its **3V3 pin, never its BAT pads.** The BAT pads go to a lithium-ion charger that would try to charge the CR123A whenever USB is plugged in.
   - **Take the battery out before plugging in USB** to flash it, so the USB supply and the battery aren't both feeding the 3.3V rail.
-- **Battery divider:** 100k + 100k on the battery side of the boost converter, read on A1. A MOSFET on the low side, driven from D2, connects it only while the firmware reads it, so it draws nothing during sleep.
+- **Reverse protection:** the XP2P038N P-FET blocks a backwards battery, with almost no voltage drop the right way round.
+- **Battery divider:** 100k + 100k on the battery side of the converter, read on A1. A MOSFET on the low side, driven from D2, connects it only while the firmware reads it, so it draws nothing during sleep.
   - **The 100k gate pull-down is required.** D2 floats in deep sleep, and the pull-down keeps the divider off.
   - A1 rather than A0 because A0 is a boot strapping pin on the C3.
 - The XIAO board itself draws ~40µA in deep sleep, which a bare ESP32-C3 module wouldn't. That's most of the power budget.
+
+### Parts list (one sensor)
+
+**Sensor board**
+
+| Qty | Part |
+|---|---|
+| 1 | SHT41I-AD1B-R2 |
+| 1 | 0.1µF, 0805 |
+| 1 | JST-SH 4-pin side entry, SM04B-SRSS-TB |
+
+**Driver board**
+
+| Qty | Part |
+|---|---|
+| 1 | Seeed XIAO ESP32-C3 |
+| 2 | 7-pin female headers for the XIAO |
+| 1 | Keystone 1051 CR123A holder |
+| 1 | CR123A lithium cell |
+| 1 | TPS63900DSKR buck-boost |
+| 1 | 2.2µH inductor, Murata DFE252012PD-2R2M=P2 (1008) |
+| 1 | 2N7002K (Rectron) |
+| 1 | XP2P038N |
+| 1 | JST-SH 4-pin vertical, BM04B-SRSS-TB |
+| 2 | 22µF, 0805, 16V, X5R or X7R |
+| 1 | 10µF, 0805 |
+| 1 | 0.1µF, 0805 |
+| 1 | 10nF, 1206 |
+| 1 | 47µF, 1206, Taiyo Yuden MSASE31LBB5476MTNA01 |
+| 3 | 100kΩ, 0805 |
+| 2 | 4.7kΩ, 0805 |
+| 1 | 36.5kΩ, 0805 (TPS63900 CFG1) |
+| 1 | 16.2kΩ, 0805 (TPS63900 CFG3) |
+
+Avoid Y5V capacitors; they lose most of their capacitance at 3.3V. The housing parts are listed under [Outdoor housing](#outdoor-housing).
 
 ## Battery monitoring
 
@@ -117,8 +154,10 @@ The script stops with an error if a change makes something not fit, for example:
 - 3× M3 × 6 mm screws (lid)
 - 6× M3 heat-set inserts, 4 mm long (3 in the pod top, 3 in the lid plug)
 - 2× M2.5 heat-set inserts and 2× M2.5 × 6 mm screws (driver board to lid standoffs)
-- 1× O-ring, 2 mm cross-section, about 55 mm ID
-- 200 mm Qwiic / STEMMA QT cable, and two JST-SH 4-pin headers: SM04B-SRSS-TB (side entry) on the sensor board, SM04B or BM04B (vertical) on the controller board
+- 1× O-ring, 2 mm cross-section, 55 mm ID, in FKM (fluorine rubber / Viton), such as uxcell's. FKM shrugs off sun and ozone, which crack ordinary nitrile. Don't substitute a thicker ring; the groove is sized for 2 mm.
+- 1× 200 mm Qwiic / STEMMA QT cable
+- 2× M4 screws through the cap, for mounting to a bracket
+- Optional: a small adhesive vent membrane for the lid
 
 **Sensor PCB:** designed for 15 × 15 mm, 1.6 mm thick (up to 20 mm long still fits). The side edges slide up into two slotted rails hanging from the cap.
 - The rails hold only the outer 1.5 mm of each side edge, over the top 6 mm. Keep components out of those strips, and don't let anything stick up past the top edge.
